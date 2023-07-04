@@ -9,7 +9,6 @@ class RecipeStepBase(BaseModel):
 
 
 class RecipeStepCreate(RecipeStepBase):
-    recipeId: int
     pass
 
 
@@ -18,6 +17,8 @@ class RecipeStep(RecipeStepBase):
     deleted: bool
     created_at: datetime = datetime.now()
     updated_at: datetime = datetime.now()
+
+    recipeId: int
 
     class Config:
         orm_mode = True
@@ -36,7 +37,6 @@ class IngredientBase(BaseModel):
 
 
 class IngredientCreate(IngredientBase):
-    recipeId: int
     pass
 
 
@@ -45,6 +45,8 @@ class Ingredient(IngredientBase):
     deleted: bool
     created_at: datetime = datetime.now()
     updated_at: datetime = datetime.now()
+
+    recipeId: int
 
     class Config:
         orm_mode = True
@@ -57,22 +59,24 @@ class Ingredient(IngredientBase):
 
 
 class RecipeBase(BaseModel):
-    youtubeThumnail: str
+    youtubeVideoId: str
     youtubeTitle: str
     youtubeChannel: str
     youtubeViewCount: int
+    difficulty: str
+    category: str
+
+
+class RecipeResponse(RecipeBase):
+    pass
+
+
+class RecipeCreate(RecipeBase):
     youtubePublishedAt: str
     youtubeLikeCount: int
     youtubeTag: str
     youtubeDescription: str
     youtubeCaption: str
-    rating: float
-    difficulty: str
-    category: str
-
-
-class RecipeCreate(RecipeBase):
-    pass
 
 
 class Recipe(RecipeBase):
@@ -83,6 +87,7 @@ class Recipe(RecipeBase):
 
     ingredients: List[Ingredient]
     recipesteps: List[RecipeStep]
+    rating: float
 
     class Config:
         orm_mode = True

@@ -22,37 +22,30 @@ router = APIRouter(
 )
 
 
-@router.get("/dummy_data", response_model=List[Recipe])
-async def get_dummy_data(db: get_db = Depends()):
-    result = RecipeService(db).create_dummydata()
-    return handle_result(result)
+# @router.get("/dummy_data", response_model=List[Recipe])
+# async def get_dummy_data(db: get_db = Depends()):
+#     result = RecipeService(db).create_dummydata()
+#     return handle_result(result)
 
 
 @router.post("/", response_model=Recipe)
-async def create_item(item: RecipeCreate, db: get_db = Depends()):
-    result = RecipeService(db).create_recipe(item)
+async def create_item(
+    item: RecipeCreate,
+    item2: List[IngredientCreate],
+    item3: List[RecipeStepCreate],
+    db: get_db = Depends(),
+):
+    result = RecipeService(db).create_recipe(item, item2, item3)
     return handle_result(result)
 
 
 @router.get("/{item_id}", response_model=Recipe)
 async def get_item(item_id: int, db: get_db = Depends()):
-    result = RecipeService(db).get_item(item_id)
+    result = RecipeService(db).get_recipe(item_id)
     return handle_result(result)
 
 
-@router.post("/ingredients", response_model=Ingredient)
-async def create_ingredient(item: IngredientCreate, db: get_db = Depends()):
-    result = RecipeService(db).create_ingredient(item)
-    return handle_result(result)
-
-
-@router.post("/ingredients/multi", response_model=List[Ingredient])
-async def create_ingredients(items: List[IngredientCreate], db: get_db = Depends()):
-    result = RecipeService(db).create_ingredients(items)
-    return handle_result(result)
-
-
-@router.post("/recipestep/multi", response_model=List[RecipeStep])
-async def create_recipesteps(items: List[RecipeStepCreate], db: get_db = Depends()):
-    result = RecipeService(db).create_recipeSteps(items)
+@router.get("/", response_model=List[Recipe])
+async def get_items(db: get_db = Depends()):
+    result = RecipeService(db).get_recipes()
     return handle_result(result)

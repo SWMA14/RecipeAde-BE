@@ -1,4 +1,12 @@
-from sqlalchemy import Integer, String, Column, Boolean, DateTime, ForeignKey, Float
+from sqlalchemy import (
+    Integer,
+    String,
+    Column,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Float,
+)
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from config.database import Base
@@ -12,15 +20,15 @@ class Recipe(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    youtubeThumnail = Column(String)
+    youtubeVideoId = Column(String)
     youtubeTitle = Column(String)
     youtubeViewCount = Column(Integer)
     youtubeChannel = Column(String)
     youtubePublishedAt = Column(String)
     youtubeLikeCount = Column(Integer)
-    youtubeTag = Column(String)
+    youtubeTag = Column(String)  # 애매함 -> 원래 모습은 리스트 형태여야 함
     youtubeDescription = Column(String)
-    youtubeCaption = Column(String)
+    youtubeCaption = Column(String)  # 이것도 원래 모습은 리스트 형태여야 함
     rating = Column(Float, default=0)
     difficulty = Column(String, default="")
     category = Column(String, default="")
