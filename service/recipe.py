@@ -1,72 +1,15 @@
-from models.recipe import Recipe, Ingredient, RecipeStep
-from schema.schemas import RecipeCreate, IngredientCreate, RecipeStepCreate
+from models.recipe import Recipe, Ingredient, RecipeStep, Channel
+from schema.schemas import (
+    RecipeCreate,
+    IngredientCreate,
+    RecipeStepCreate,
+    ChannelCreate,
+)
 from typing import List
 from .main import AppCRUD, AppService
 from utils.service_result import ServiceResult
 from utils.app_exceptions import AppException
 from .youtubeAPI import YoutubeAPI
-
-import random
-import string
-
-
-def random_string(length: int) -> str:
-    if length > 10:
-        length = 10
-    elif length < 1:
-        length = 1
-    result = "".join(
-        random.choice(string.ascii_letters + string.digits) for _ in range(length)
-    )
-    return result
-
-
-def random_number() -> int:
-    result = random.randint(1, 9999)
-    return result
-
-
-# for i in range(20):
-#     recipe_seed = {
-#         "youtubeTitle": random_string(i),
-#         "youtubeThumnail": random_string(i),
-#         "youtubeTitle": random_string(i),
-#         "youtubeChannel": random_string(i),
-#         "youtubeViewCount": random_number(),
-#         "youtubePublishedAt": random_string(i),
-#         "youtubeLikeCount": random_number(),
-#         "youtubeTag": random_string(i),
-#         "youtubeDescription": random_string(i),
-#         "youtubeCaption": random_string(i),
-#         "rating": random_number(),
-#         "difficulty": random_string(i),
-#         "category": random_string(i),
-#     }
-#     db_item = RecipeCreate(**recipe_seed)
-#     recipe = RecipeCRUD(self.db).create_recipe(db_item)
-#     recipe_id = recipe.id
-
-#     for j in range(3):
-#         ingredient_seed = {
-#             "name": random_string(j + i),
-#             "quantity": random_number(),
-#             "unit": random_string(j + i),
-#             "recipeId": recipe_id,
-#         }
-#         db_ingredient = IngredientCreate(**ingredient_seed)
-#         ingredient = IngredientCRUD(self.db).create_ingredient(db_ingredient)
-
-#     for k in range(5):
-#         recipestep_seed = {
-#             "description": random_string(k + i),
-#             "timestamp": random_string(k + i),
-#             "recipeId": recipe_id,
-#         }
-
-#         db_recipestep = RecipeStepCreate(**recipestep_seed)
-#         recipestep = RecipeStepCRUD(self.db).create_recipeStep(db_recipestep)
-
-# recipes = RecipeCRUD(self.db).get_recipes()
 
 
 class RecipeService(AppService):
@@ -97,6 +40,18 @@ class RecipeService(AppService):
             return ServiceResult(AppException.FooGetItem({"item_ids": None}))
         return ServiceResult(recipes)
 
+    def create_channel(self, channel_item: ChannelCreate) -> ServiceResult:
+        channel = ChannelCRUD(self.db).create_channel(channel_item)
+        if not channel:
+            return ServiceResult(AppException.FooCreateItem())
+        return ServiceResult(channel)
+
+    def get_channel(self, channel_id: int) -> ServiceResult:
+        channel = ChannelCRUD(self.db).get_channel_by_id(channel_id)
+        if not channel:
+            return ServiceResult(AppException.FooGetItem({"channel_id": channel_id}))
+        return ServiceResult(channel)
+
 
 class RecipeCRUD(AppCRUD):
     def create_recipe(
@@ -104,8 +59,20 @@ class RecipeCRUD(AppCRUD):
         item: RecipeCreate,
         ingredient_items: List[IngredientCreate],
         recipeStep_items: List[RecipeStepCreate],
+        channelID: str,
     ) -> Recipe:
-        recipe = Recipe(**item.dict())
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        if channel:
+            channelid = channel.id
+        else:
+            youtube = YoutubeAPI()
+            channel_obj = ChannelCRUD(self.db).create_channel(
+                youtube.get_channelInfo(channelID)
+            )
+            channel = ChannelCRUD(self.db).create_channel(channel_obj)
+            self.db.flush()
+            channelid = channel.id
+        recipe = Recipe(**item.dict(), youtubeChannel=channelid)
         self.db.add(recipe)
         self.db.flush()
         ingredients = IngredientCRUD(self.db).create_ingredients(
@@ -130,6 +97,12 @@ class RecipeCRUD(AppCRUD):
             return recipe
         return None
 
+    def update_recipe(
+        self,
+        recipe_id: int,
+    ):
+        recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id)
+
 
 class IngredientCRUD(AppCRUD):
     def create_ingredients(
@@ -140,6 +113,16 @@ class IngredientCRUD(AppCRUD):
         # self.db.commit()
         return objects
 
+    def update_ingredient(
+        self,
+        ingredient_id: int,
+        newIngredient: IngredientCreate,
+    ) -> Ingredient:
+        ingredient = self.db.query(Ingredient).filter(Ingredient.id == ingredient_id)
+        ingredient = newIngredient
+        self.db.commit()
+        return ingredient
+
 
 class RecipeStepCRUD(AppCRUD):
     def create_recipeSteps(
@@ -148,3 +131,32 @@ class RecipeStepCRUD(AppCRUD):
         objects = [RecipeStep(**item.dict(), recipeId=recipe_id) for item in items]
         self.db.add_all(objects)
         return objects
+
+    def update_recipeStep(
+        self, recipeStep_id: int, newRecipeStep: RecipeStepCreate
+    ) -> RecipeStep:
+        recipeStep = self.db.query(RecipeStep).filter(RecipeStep.id == recipeStep_id)
+        recipeStep = newRecipeStep
+        self.db.commit()
+        return recipeStep
+
+
+class ChannelCRUD(AppCRUD):
+    def get_channel_by_id(self, channel_id: int) -> Channel:
+        channel = self.db.query(Channel).filter(Channel.id == channel_id).first()
+        if channel:
+            return channel
+        return None
+
+    def get_channel_by_channelId(self, youtubeChannelId: str) -> Channel:
+        channel = (
+            self.db.query(Channel).filter(Channel.channelID == youtubeChannelId).first()
+        )
+        if channel:
+            return channel
+        return None
+
+    def create_channel(self, channel_item: ChannelCreate) -> Channel:
+        channel = Channel(**channel_item.dict())
+        self.db.add(channel)
+        return channel

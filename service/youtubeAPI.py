@@ -14,6 +14,8 @@ import isodate
 import pickle
 import os
 
+from schema.schemas import ChannelCreate
+
 
 def convert_seconds_to_time_str(seconds: float) -> str:
     minutes = int(seconds // 60)
@@ -112,7 +114,7 @@ class YoutubeAPI:
             return None
 
     # 영상 Id를 통해 필요한 데이터 수집
-    def getVideoInfoById(self, videoId: str) -> RecipeCreate:
+    def getVideoInfoById(self, videoId: str) -> tuple[RecipeCreate, str]:
         youtube_response = (
             self.youtube.videos()
             .list(
@@ -153,18 +155,41 @@ class YoutubeAPI:
         recipe_data = RecipeCreate(
             youtubeVideoId=videoId,
             youtubeTitle=title,
-            youtubeChannel=channel_id,
             youtubeViewCount=view_count,
             difficulty="",
             category="",
             youtubePublishedAt=published_at,
             youtubeLikeCount=like_count,
-            youtubeTag=("${0}" % (tags)),
+            youtubeTag=(tags),
             youtubeDescription=descriptioin,
-            youtubeCaption=("${0}" % (processed_data)),
+            youtubeCaption=(processed_data),
         )
 
-        return recipe_data
+        return (
+            recipe_data,
+            channel_id,
+        )
+
+    def get_channelInfo(self, channelID: str) -> ChannelCreate:
+        try:
+            channel_request = self.youtube.channels().list(part="snippet", id=channelID)
+
+            channel_response = channel_request.execute()
+
+            channel_name = channel_response["items"][0]["snippet"]["title"]
+            thumbnail_url = channel_response["items"][0]["snippet"]["thumbnails"][
+                "high"
+            ]["url"]
+
+            channel_object = ChannelCreate(
+                channelID=channelID,
+                ChannelName=channel_name,
+                ChannelThumbnail=thumbnail_url,
+            )
+            return channel_object
+        except HttpError as error:
+            print(f"An HTTP error {error.resp.status} occurred: {error.content}")
+            return None
 
     def get_subscriptions(self) -> List[str]:
         # 유저가 구독한 채널 정보를 가져옵니다.
