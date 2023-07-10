@@ -1,12 +1,11 @@
 from fastapi import APIRouter, Depends
 
 from service.recipe import RecipeService
+from service.recommend import RecommendService
 from schema.schemas import (
     Recipe,
     RecipeCreate,
-    Ingredient,
     IngredientCreate,
-    RecipeStep,
     RecipeStepCreate,
     Channel,
     ChannelCreate,
@@ -24,6 +23,24 @@ router = APIRouter(
     tags=["recipe"],
     responses={404: {"description": "Not found"}},
 )
+
+
+@router.get("/recoomend/{difficulty}", response_model=List[Recipe])
+async def get_recipes_by_same_difficulty(
+    difficulty: str,
+    db: get_db = Depends(),
+):
+    result = RecommendService(db).get_recipes_by_same_difficulty(difficulty)
+    return handle_result(result)
+
+
+@router.get("/recoomend/{category}", response_model=List[Recipe])
+async def get_recipes_by_same_category(
+    category: str,
+    db: get_db = Depends(),
+):
+    result = RecommendService(db).get_recipes_by_same_category(category)
+    return handle_result(result)
 
 
 @router.post("/channel/", response_model=Channel)
@@ -49,9 +66,10 @@ async def create_recipe(
     item: RecipeCreate,
     item2: List[IngredientCreate],
     item3: List[RecipeStepCreate],
+    channelID: str,
     db: get_db = Depends(),
 ):
-    result = RecipeService(db).create_recipe(item, item2, item3)
+    result = RecipeService(db).create_recipe(item, item2, item3, channelID)
     return handle_result(result)
 
 

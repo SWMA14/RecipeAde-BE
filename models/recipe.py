@@ -26,9 +26,6 @@ class Recipe(Base):
     youtubeChannel = Column(Integer, ForeignKey("channels.id"))
     youtubePublishedAt = Column(String)
     youtubeLikeCount = Column(Integer)
-    # youtubeTag = Column(String)  # 애매함 -> 원래 모습은 리스트 형태여야 함
-    # youtubeDescription = Column(String)
-    # youtubeCaption = Column(String)  # 이것도 원래 모습은 리스트 형태여야 함
     rating = Column(Float, default=0)
     difficulty = Column(String, default="")
     category = Column(String, default="")
@@ -81,7 +78,7 @@ class Channel(Base):
     channelID = Column(String)
     ChannelName = Column(String)
     ChannelThumbnail = Column(String)
-    is_CC = Column(Boolean, default=True)
+    allowed = Column(Boolean, default=False)
 
     recipe = relationship("Recipe", back_populates="channels")
 
