@@ -147,3 +147,26 @@ class Recipe(RecipeBase):
     def number_validator(cls, values):
         values["updated_at"] = datetime.now()
         return values
+
+class UserBase(BaseModel):
+    uid: int
+    password: str
+    nickname: str
+
+class UserCreate(UserBase):
+    pass
+
+class User(UserBase):
+    id: int
+    deleted: bool
+    created_at: datetime = datetime.now()
+    updated_at: datetime = datetime.now()
+
+    class Config:
+        orm_mode = True
+        validate_assignment = True
+
+    @root_validator
+    def number_validator(cls, values):
+        values["updated_at"] = datetime.now()
+        return values

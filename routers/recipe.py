@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 
 from service.recipe import RecipeService
 from service.recommend import RecommendService
+from service.search import SearchService
 from schema.schemas import (
     Recipe,
     RecipeCreate,
@@ -25,25 +26,21 @@ router = APIRouter(
 )
 
 
-@router.get("/recoomend/{difficulty}", response_model=List[Recipe])
-async def get_recipes_by_same_difficulty(
-    difficulty: str,
+@router.get("/recoomend/", response_model=List[Recipe])
+async def get_recipes_by_same(
+    difficulty: str | None = None,
+    category: str | None = None,
     db: get_db = Depends(),
 ):
-    result = RecommendService(db).get_recipes_by_same_difficulty(difficulty)
-    return handle_result(result)
+    if difficulty:
+        result = RecommendService(db).get_recipes_by_same_difficulty(difficulty)
+        return handle_result(result)
+    else:
+        result = RecommendService(db).get_recipes_by_same_category(category)
+        return handle_result(result)
 
 
-@router.get("/recoomend/{category}", response_model=List[Recipe])
-async def get_recipes_by_same_category(
-    category: str,
-    db: get_db = Depends(),
-):
-    result = RecommendService(db).get_recipes_by_same_category(category)
-    return handle_result(result)
-
-
-@router.post("/channel/", response_model=Channel)
+@router.post("/channel", response_model=Channel)
 async def create_channel(
     channel_item: ChannelCreate,
     db: get_db = Depends(),
@@ -61,7 +58,7 @@ async def get_channel(
     return handle_result(result)
 
 
-@router.post("/", response_model=Recipe)
+@router.post("", response_model=Recipe)
 async def create_recipe(
     item: RecipeCreate,
     item2: List[IngredientCreate],
@@ -79,7 +76,26 @@ async def get_item(item_id: int, db: get_db = Depends()):
     return handle_result(result)
 
 
-@router.get("/", response_model=List[Recipe])
+@router.get("", response_model=List[Recipe])
 async def get_items(db: get_db = Depends()):
     result = RecipeService(db).get_recipes()
     return handle_result(result)
+
+@router.get("/search/", response_model=List[Recipe])
+async def get_recipe_by_search(
+    title: str | None = None,
+    channel: str | None = None,
+    tag: str | None = None,
+    db: get_db=Depends()
+):
+    if title:
+        result = SearchService(db).getRecipesByTitle(title)
+        return handle_result(result)
+    elif channel:
+        result = SearchService(db).getRecipesByChannel(channel)
+        return handle_result(result)
+    elif tag:
+        result = SearchService(db).getRecipesByTag(tag)
+        return handle_result(result)
+    else:
+        return "none"

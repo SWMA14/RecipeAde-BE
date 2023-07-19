@@ -80,7 +80,7 @@ class RecipeCRUD(AppCRUD):
         self.db.add(recipe)
         self.db.flush()
         tags = TagCRUD(self.db).create_tags(
-            [TagCreate(tagName="recipe", recipeId=recipe.id)]
+            [TagCreate(tagName="reciped", recipeId=recipe.id)]
         )
         ingredients = IngredientCRUD(self.db).create_ingredients(
             ingredient_items, recipe.id
