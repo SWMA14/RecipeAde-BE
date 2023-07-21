@@ -34,6 +34,7 @@ class Recipe(Base):
     recipesteps = relationship("RecipeStep", back_populates="recipe")
     channels = relationship("Channel", back_populates="recipe")
     tags = relationship("Tag", back_populates="recipe")
+    reviews = relationship("Review",back_populates="recipe")
 
 
 class Ingredient(Base):
@@ -95,3 +96,31 @@ class Tag(Base):
     tagName = Column(String, index=True)
 
     recipe = relationship("Recipe", back_populates="tags")
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True)
+    deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    recipeId = Column(Integer,ForeignKey("recipes.id"))
+    author = Column(Integer)
+    content = Column(String)
+
+    recipe = relationship("Recipe", back_populates="reviews")
+    ReviewImage = relationship("ReviewImage",back_populates="review")
+
+class ReviewImage(Base):
+    __tablename__ = "reviewImages"
+
+    id = Column(Integer, primary_key=True)
+    deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    reviewId = Column(Integer,ForeignKey("reviews.id"))
+    image = Column(String)
+
+    review = relationship("Review",back_populates="reviewImages")

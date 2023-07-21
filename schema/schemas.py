@@ -21,10 +21,6 @@ class Tag(TagBase):
         orm_mode = True
         validate_assignment = True
 
-    @root_validator
-    def number_validator(cls, values):
-        values["updated_at"] = datetime.now()
-        return values
 
 
 class ChannelBase(BaseModel):
@@ -48,10 +44,7 @@ class Channel(ChannelBase):
         orm_mode = True
         validate_assignment = True
 
-    @root_validator
-    def number_validator(cls, values):
-        values["updated_at"] = datetime.now()
-        return values
+
 
 
 class RecipeStepBase(BaseModel):
@@ -74,11 +67,6 @@ class RecipeStep(RecipeStepBase):
     class Config:
         orm_mode = True
         validate_assignment = True
-
-    @root_validator
-    def number_validator(cls, values):
-        values["updated_at"] = datetime.now()
-        return values
 
 
 class IngredientBase(BaseModel):
@@ -103,10 +91,6 @@ class Ingredient(IngredientBase):
         orm_mode = True
         validate_assignment = True
 
-    @root_validator
-    def number_validator(cls, values):
-        values["updated_at"] = datetime.now()
-        return values
 
 
 class RecipeBase(BaseModel):
@@ -143,20 +127,31 @@ class Recipe(RecipeBase):
         orm_mode = True
         validate_assignment = True
 
-    @root_validator
-    def number_validator(cls, values):
-        values["updated_at"] = datetime.now()
-        return values
+    
+class ReviewBase(BaseModel):
+    author: int
+    content: str
 
-class UserBase(BaseModel):
-    uid: int
-    password: str
-    nickname: str
-
-class UserCreate(UserBase):
+class ReviewCreate(ReviewBase):
     pass
 
-class User(UserBase):
+class Review(ReviewBase):
+    id: int
+    deleted: bool
+    created_at: datetime = datetime.now()
+    updated_at: datetime = datetime.now()
+
+    recipeId: int
+
+    class Config:
+        orm_mode = True
+        validate_assignment = True
+
+class ReviewImageCreate(BaseModel):
+    reviewId: int
+    image: str
+
+class ReviewImage(ReviewImageCreate):
     id: int
     deleted: bool
     created_at: datetime = datetime.now()
@@ -165,8 +160,3 @@ class User(UserBase):
     class Config:
         orm_mode = True
         validate_assignment = True
-
-    @root_validator
-    def number_validator(cls, values):
-        values["updated_at"] = datetime.now()
-        return values
