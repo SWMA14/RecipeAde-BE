@@ -15,6 +15,9 @@ from .youtubeAPI import YoutubeAPI
 from sqlalchemy import or_,desc
 
 class RecipeService(AppService):
+    def delete_recipe(self,recipe_id):
+        RecipeCRUD(self.db).delete_recipe(recipe_id)
+
     def create_recipe(
         self,
         item: RecipeCreate,
@@ -58,6 +61,11 @@ class RecipeService(AppService):
 
 
 class RecipeCRUD(AppCRUD):
+    def delete_recipe(self, recipe_id: int):
+        recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
+        recipe.deleted = True
+        self.db.commit()
+
     def create_recipe(
         self,
         item: RecipeCreate,
@@ -92,14 +100,14 @@ class RecipeCRUD(AppCRUD):
         self.db.refresh(recipe)
         return recipe
 
-    def get_recipe(self, recipe_id: int) -> Recipe:
-        recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
+    def get_recipe(self, recipe_id: int) -> RecipeResponse:
+        recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id, Recipe.deleted == False).first()
         if recipe:
             return recipe
         return None
 
-    def get_recipes(self) -> List[Recipe]:
-        recipe = self.db.query(Recipe).all()
+    def get_recipes(self) -> List[RecipeResponse]:
+        recipe = self.db.query(Recipe).filter(Recipe.deleted == False).all()
         if recipe:
             return recipe
         return None
@@ -174,26 +182,3 @@ class TagCRUD(AppCRUD):
     def get_tags(self, tag_name: str) -> List[Tag]:
         tags = self.db.query(Tag).filter(Tag.tagName.like(tag_name))
         return tags
-
-class SearchTest(AppService):
-    def searchTest(self,keyword,category, diff, sort):
-        query = self.db.query(Recipe)
-        searchtitle = "%{}%".format(keyword)
-        searchChannel = "%{}%".format(keyword)
-        searchTag = "%{}%".format(keyword)
-        tags = self.db.query(Tag).filter(Tag.tagName.like(searchTag)).all()
-        recipeIds = [tag.recipeId for tag in tags]
-        query = query.filter(or_(Recipe.youtubeTitle.like(searchtitle), Recipe.youtubeChannel.like(searchChannel), Recipe.id.in_(recipeIds)))
-        if category:
-            query = query.filter(Recipe.category == category)
-        if diff:
-            query = query.filter(Recipe.difficulty == diff)
-        if sort:
-            if sort == "rating":
-                query = query.order_by(desc(Recipe.rating))
-            elif sort == "current":
-                query = query.order_by(desc(Recipe.youtubePublishedAt))
-            else:
-                query = query.order_by(desc(Recipe.youtubeViewCount))
-        recipes = query.all()
-        return recipes
