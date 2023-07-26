@@ -103,7 +103,8 @@ class RecipeBase(BaseModel):
 
 
 class RecipeResponse(RecipeBase):
-    pass
+    id: int
+    rating: float
 
 
 class RecipeCreate(RecipeBase):
@@ -135,6 +136,10 @@ class ReviewBase(BaseModel):
 class ReviewCreate(ReviewBase):
     pass
 
+class ReviewResponse(ReviewBase):
+    id: int
+    recipeId: int
+
 class Review(ReviewBase):
     id: int
     deleted: bool
@@ -150,6 +155,7 @@ class Review(ReviewBase):
 class ReviewImageCreate(BaseModel):
     reviewId: int
     image: str
+    fileName: str
 
 class ReviewImage(ReviewImageCreate):
     id: int
