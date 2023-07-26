@@ -110,7 +110,7 @@ class Review(Base):
     content = Column(String)
 
     recipe = relationship("Recipe", back_populates="reviews")
-    ReviewImage = relationship("ReviewImage",back_populates="review")
+    reviewImages = relationship("ReviewImage",back_populates="review")
 
 class ReviewImage(Base):
     __tablename__ = "reviewImages"
@@ -122,5 +122,6 @@ class ReviewImage(Base):
 
     reviewId = Column(Integer,ForeignKey("reviews.id"))
     image = Column(String)
+    fileName = Column(String)
 
     review = relationship("Review",back_populates="reviewImages")
