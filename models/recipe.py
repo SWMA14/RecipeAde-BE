@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Float,
+    Text
 )
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -20,15 +21,15 @@ class Recipe(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    youtubeVideoId = Column(String)
-    youtubeTitle = Column(String)
+    youtubeVideoId = Column(String(30))
+    youtubeTitle = Column(String(30))
     youtubeViewCount = Column(Integer)
     youtubeChannel = Column(Integer, ForeignKey("channels.id"))
-    youtubePublishedAt = Column(String)
+    youtubePublishedAt = Column(String(30))
     youtubeLikeCount = Column(Integer)
     rating = Column(Float, default=0)
-    difficulty = Column(String, default="")
-    category = Column(String, default="")
+    difficulty = Column(String(20), default="")
+    category = Column(String(20), default="")
 
     ingredients = relationship("Ingredient", back_populates="recipe")
     recipesteps = relationship("RecipeStep", back_populates="recipe")
@@ -45,9 +46,9 @@ class Ingredient(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    name = Column(String)
+    name = Column(String(20))
     quantity = Column(Integer)
-    unit = Column(String)
+    unit = Column(String(20))
     recipeId = Column(Integer, ForeignKey("recipes.id"))
 
     recipe = relationship("Recipe", back_populates="ingredients")
@@ -61,8 +62,8 @@ class RecipeStep(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    description = Column(String)
-    timestamp = Column(String)
+    description = Column(Text)
+    timestamp = Column(String(20))
     recipeId = Column(Integer, ForeignKey("recipes.id"))
 
     recipe = relationship("Recipe", back_populates="recipesteps")
@@ -76,9 +77,9 @@ class Channel(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    channelID = Column(String)
-    ChannelName = Column(String)
-    ChannelThumbnail = Column(String)
+    channelID = Column(String(50))
+    ChannelName = Column(String(50))
+    ChannelThumbnail = Column(Text)
     allowed = Column(Boolean, default=False)
 
     recipe = relationship("Recipe", back_populates="channels")
@@ -93,7 +94,7 @@ class Tag(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     recipeId = Column(Integer, ForeignKey("recipes.id"))
-    tagName = Column(String, index=True)
+    tagName = Column(String(20), index=True)
 
     recipe = relationship("Recipe", back_populates="tags")
 
@@ -107,7 +108,7 @@ class Review(Base):
 
     recipeId = Column(Integer,ForeignKey("recipes.id"))
     author = Column(Integer)
-    content = Column(String)
+    content = Column(Text)
 
     recipe = relationship("Recipe", back_populates="reviews")
     reviewImages = relationship("ReviewImage",back_populates="review")
@@ -121,7 +122,7 @@ class ReviewImage(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     reviewId = Column(Integer,ForeignKey("reviews.id"))
-    image = Column(String)
-    fileName = Column(String)
+    image = Column(Text)
+    fileName = Column(String(50))
 
     review = relationship("Review",back_populates="reviewImages")
