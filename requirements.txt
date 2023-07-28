@@ -5,6 +5,7 @@ botocore==1.31.12
 cachetools==5.3.1
 certifi==2023.7.22
 charset-normalizer==3.2.0
+click==8.1.6
 fastapi==0.100.0
 google-api-core==2.11.1
 google-api-python-client==2.95.0
@@ -12,6 +13,7 @@ google-auth==2.22.0
 google-auth-httplib2==0.1.0
 google-auth-oauthlib==1.0.0
 googleapis-common-protos==1.59.1
+h11==0.14.0
 httplib2==0.22.0
 idna==3.4
 isodate==0.6.1
@@ -37,4 +39,5 @@ starlette==0.27.0
 typing_extensions==4.7.1
 uritemplate==4.1.1
 urllib3==1.26.16
+uvicorn==0.23.1
 youtube-transcript-api==0.6.1
