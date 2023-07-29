@@ -62,7 +62,8 @@ class RecipeService(AppService):
 class RecipeCRUD(AppCRUD):
     def delete_recipe(self, recipe_id: int):
         recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
-        recipe.deleted = True
+        if recipe:
+            recipe.deleted = True
         self.db.commit()
 
     def create_recipe(

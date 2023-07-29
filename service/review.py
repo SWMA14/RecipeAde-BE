@@ -93,18 +93,20 @@ class ReviewCRUD(AppCRUD):
     
     def deleteReview(self, review_id: int):
         review = self.db.query(Review).filter(Review.id == review_id).first()
-        review.deleted = True
-        for image in review.reviewImages:
-            image.deleted = True
-        self.db.commit()
+        if review:
+            review.deleted = True
+            for image in review.reviewImages:
+                image.deleted = True
+            self.db.commit()
         return "SUCCESS"
 
     def updateReview(self,review_id:int, content:str, files:List[UploadFile]) -> ReviewResponse:
         review = self.db.query(Review).filter(Review.id ==review_id).first()
-        review.content = content
-        reviewImages = review.reviewImages
-        for reviewImage in reviewImages:
-            reviewImage.deleted = True
-        self.db.commit()
-        self.s3_upload(files, review, review_id)
+        if review:
+            review.content = content
+            reviewImages = review.reviewImages
+            for reviewImage in reviewImages:
+                reviewImage.deleted = True
+            self.db.commit()
+            self.s3_upload(files, review, review_id)
         return review
