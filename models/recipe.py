@@ -24,7 +24,7 @@ class Recipe(Base):
     youtubeVideoId = Column(String(30))
     youtubeTitle = Column(String(30))
     youtubeViewCount = Column(Integer)
-    youtubeChannel = Column(Integer, ForeignKey("channels.id"))
+    youtubeChannel = Column(String(50), ForeignKey("channels.channelID"))
     youtubePublishedAt = Column(String(30))
     youtubeLikeCount = Column(Integer)
     rating = Column(Float, default=0)
@@ -33,7 +33,7 @@ class Recipe(Base):
 
     ingredients = relationship("Ingredient", back_populates="recipe")
     recipesteps = relationship("RecipeStep", back_populates="recipe")
-    channels = relationship("Channel", back_populates="recipe")
+    channel = relationship("Channel", back_populates="recipes")
     tags = relationship("Tag", back_populates="recipe")
     reviews = relationship("Review",back_populates="recipe")
 
@@ -77,12 +77,12 @@ class Channel(Base):
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
-    channelID = Column(String(50))
+    channelID = Column(String(50), unique=True)
     ChannelName = Column(String(50))
-    ChannelThumbnail = Column(Text)
+    ChannelThumbnail = Column(Text, default="")
     allowed = Column(Boolean, default=False)
 
-    recipe = relationship("Recipe", back_populates="channels")
+    recipes = relationship("Recipe", back_populates="channel")
 
 
 class Tag(Base):

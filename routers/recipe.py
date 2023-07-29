@@ -63,10 +63,9 @@ async def create_recipe(
     item: RecipeCreate,
     item2: List[IngredientCreate],
     item3: List[RecipeStepCreate],
-    channelID: str,
     db: get_db = Depends(),
 ):
-    result = RecipeService(db).create_recipe(item, item2, item3, channelID)
+    result = RecipeService(db).create_recipe(item, item2, item3)
     return handle_result(result)
 
 

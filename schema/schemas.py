@@ -26,12 +26,11 @@ class Tag(TagBase):
 class ChannelBase(BaseModel):
     channelID: str
     ChannelName: str
-    ChannelThumbnail: str
+    #ChannelThumbnail: str
 
 
 class ChannelCreate(ChannelBase):
     allowed: Optional[bool] = False
-    pass
 
 
 class Channel(ChannelBase):
@@ -96,7 +95,7 @@ class Ingredient(IngredientBase):
 class RecipeBase(BaseModel):
     youtubeVideoId: str
     youtubeTitle: str
-    youtubeChannel: Optional[str] = None
+    youtubeChannel: str
     youtubeViewCount: int
     difficulty: Optional[str] = None
     category: Optional[str] = None
@@ -121,7 +120,6 @@ class Recipe(RecipeBase):
     ingredients: List[Ingredient]
     recipesteps: List[RecipeStep]
     tags: List[Tag]
-    # channels: Channel
     rating: float
 
     class Config:

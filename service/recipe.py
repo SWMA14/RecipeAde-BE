@@ -23,13 +23,12 @@ class RecipeService(AppService):
         item: RecipeCreate,
         ingredient_items: List[IngredientCreate],
         recipeStep_items: List[RecipeStepCreate],
-        channelID: str,
     ) -> ServiceResult:
         recipe = RecipeCRUD(self.db).create_recipe(
             item=item,
             ingredient_items=ingredient_items,
             recipeStep_items=recipeStep_items,
-            channelID=channelID,
+            channelID=item.youtubeChannel,
         )
         if not recipe:
             return ServiceResult(AppException.FooCreateItem())
@@ -72,8 +71,12 @@ class RecipeCRUD(AppCRUD):
         ingredient_items: List[IngredientCreate],
         recipeStep_items: List[RecipeStepCreate],
         channelID: str,
-    ) -> Recipe:
-        # channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+    ) -> Recipe: # 외래 키 제약조건 위배 -> 레시피 입력 시 채널 추가까지 
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        if not channel:
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID=channelID, ChannelName="none"))
+            self.db.commit()
+            channel = newChannel
         # if channel:
         #     channelid = channel.id
         # else:
@@ -84,7 +87,7 @@ class RecipeCRUD(AppCRUD):
         #     channel = ChannelCRUD(self.db).create_channel(channel_obj)
         #     self.db.flush()
         #     channelid = channel.id
-        recipe = Recipe(**item.dict())
+        recipe = Recipe(**item.dict(), channel=channel)
         self.db.add(recipe)
         self.db.flush()
         tags = TagCRUD(self.db).create_tags(
