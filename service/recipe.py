@@ -91,13 +91,15 @@ class RecipeCRUD(AppCRUD):
         recipe = Recipe(**item.dict(), channel=channel)
         self.db.add(recipe)
         self.db.flush()
-        tags = TagCRUD(self.db).create_tags(
-            [TagCreate(tagName="reciped", recipeId=recipe.id)]
+        res = YoutubeAPI()
+        data = res.getTagById(item.youtubeVideoId)
+        TagCRUD(self.db).create_tags(
+            [TagCreate(tagName=item,recipeId=recipe.id) for item in data]
         )
-        ingredients = IngredientCRUD(self.db).create_ingredients(
+        IngredientCRUD(self.db).create_ingredients(
             ingredient_items, recipe.id
         )
-        recipeSteps = RecipeStepCRUD(self.db).create_recipeSteps(
+        RecipeStepCRUD(self.db).create_recipeSteps(
             recipeStep_items, recipe.id
         )
         self.db.commit()

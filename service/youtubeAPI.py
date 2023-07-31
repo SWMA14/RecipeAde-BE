@@ -4,7 +4,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from schema.schemas import RecipeCreate
+from schema.schemas import RecipeCreate,TagCreate
 
 from dotenv import load_dotenv
 from typing import List
@@ -87,7 +87,7 @@ class YoutubeAPI:
     def findVideoByChannelId(self, channelID: str) -> List[str]:
         videos = (
             self.youtube.search()
-            .list(part="id", channelId=channelID, maxResults=1, order="date")
+            .list(part="id", channelId=channelID, maxResults=5, order="date")
             .execute()
         )
 
@@ -113,8 +113,25 @@ class YoutubeAPI:
             print("An HTTP error %d occurred:\n%s" % (e.resp.status, e.content))
             return None
 
+    def getTagById(self,videoId: str) -> List[str]:
+        #videoId를 받으면 Tag의 리스프 리턴
+        youtube_response = (
+            self.youtube.videos()
+            .list(
+                part="snippet",
+                id=videoId,
+            )
+            .execute()
+        )
+         
+        tags = youtube_response["items"][0]["snippet"].get("tags")
+
+        return tags
+
+
+
     # 영상 Id를 통해 필요한 데이터 수집
-    def getVideoInfoById(self, videoId: str) -> tuple[RecipeCreate, str]:
+    def getVideoInfoById(self, videoId: str) -> tuple[RecipeCreate, List[str],str]:
         youtube_response = (
             self.youtube.videos()
             .list(
@@ -123,13 +140,14 @@ class YoutubeAPI:
             )
             .execute()
         )
+        
 
         view_count = youtube_response["items"][0]["statistics"]["viewCount"]
         like_count = youtube_response["items"][0]["statistics"]["likeCount"]
 
         title = youtube_response["items"][0]["snippet"]["title"]
         published_at = youtube_response["items"][0]["snippet"]["publishedAt"]
-        descriptioin = youtube_response["items"][0]["snippet"]["description"]
+        #descriptioin = youtube_response["items"][0]["snippet"]["description"]
         # thumbnail = youtube_response["items"][0]["snippet"]["thumbnails"]["default"]["url"]
         channel_id = youtube_response["items"][0]["snippet"]["channelId"]
         duration = youtube_response["items"][0]["contentDetails"]["duration"]
@@ -140,15 +158,15 @@ class YoutubeAPI:
             tags = youtube_response["items"][0]["snippet"]["tags"]
         else:
             tags = []
-        category = youtube_response["items"][0]["topicDetails"]["topicCategories"]
+        #category = youtube_response["items"][0]["topicDetails"]["topicCategories"]
 
-        transcript_list = YouTubeTranscriptApi.list_transcripts(videoId)
-        transcript = transcript_list.find_transcript(["ko", "en"])
-        if transcript == None:
-            script = []
-        else:
-            script = transcript.fetch()
-        processed_data = process_data(script)
+        # transcript_list = YouTubeTranscriptApi.list_transcripts(videoId)
+        # transcript = transcript_list.find_transcript(["ko", "en"])
+        # if transcript == None:
+        #     script = []
+        # else:
+        #     script = transcript.fetch()
+        # processed_data = process_data(script)
 
         recipe_data = RecipeCreate(
             youtubeVideoId=videoId,
@@ -158,13 +176,16 @@ class YoutubeAPI:
             category="",
             youtubePublishedAt=published_at,
             youtubeLikeCount=like_count,
-            youtubeTag=(tags),  # 빼야함
-            youtubeDescription=descriptioin,  # 추후 빼야함
-            youtubeCaption=(processed_data),  # 추후 빼야함
+            youtubeChannel=channel_id
+            #youtubeTag=tags
+            #youtubeDescription=descriptioin,  # 추후 빼야함
+            #youtubeCaption=(processed_data),  # 추후 빼야함
         )
+
 
         return (
             recipe_data,
+            tags,
             channel_id,
         )
 
