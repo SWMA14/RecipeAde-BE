@@ -23,12 +23,14 @@ class RecipeService(AppService):
         item: RecipeCreate,
         ingredient_items: List[IngredientCreate],
         recipeStep_items: List[RecipeStepCreate],
+        tags: List[TagCreate]
     ) -> ServiceResult:
         recipe = RecipeCRUD(self.db).create_recipe(
             item=item,
             ingredient_items=ingredient_items,
             recipeStep_items=recipeStep_items,
             channelID=item.youtubeChannel,
+            tags=tags
         )
         if not recipe:
             return ServiceResult(AppException.FooCreateItem())
@@ -72,6 +74,7 @@ class RecipeCRUD(AppCRUD):
         ingredient_items: List[IngredientCreate],
         recipeStep_items: List[RecipeStepCreate],
         channelID: str,
+        tags: List[TagCreate]
     ) -> Recipe: # 외래 키 제약조건 위배 -> 레시피 입력 시 채널 추가까지 
         channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
         if not channel:
@@ -91,10 +94,8 @@ class RecipeCRUD(AppCRUD):
         recipe = Recipe(**item.dict(), channel=channel)
         self.db.add(recipe)
         self.db.flush()
-        res = YoutubeAPI()
-        data = res.getTagById(item.youtubeVideoId)
         TagCRUD(self.db).create_tags(
-            [TagCreate(tagName=item,recipeId=recipe.id) for item in data]
+            tags, recipe.id
         )
         IngredientCRUD(self.db).create_ingredients(
             ingredient_items, recipe.id
@@ -180,8 +181,8 @@ class ChannelCRUD(AppCRUD):
 
 
 class TagCRUD(AppCRUD):
-    def create_tags(self, tag_items: List[TagCreate]) -> List[Tag]:
-        tags = [Tag(**tag.dict()) for tag in tag_items]
+    def create_tags(self, tag_items: List[TagCreate], recipe:int) -> List[Tag]:
+        tags = [Tag(**tag.dict(), recipeId = recipe) for tag in tag_items]
         self.db.add_all(tags)
         return tags
 

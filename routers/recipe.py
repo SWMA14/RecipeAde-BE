@@ -9,7 +9,8 @@ from schema.schemas import (
     RecipeStepCreate,
     Channel,
     ChannelCreate,
-    RecipeResponse
+    RecipeResponse,
+    TagCreate
 )
 
 from utils.service_result import handle_result
@@ -63,9 +64,10 @@ async def create_recipe(
     item: RecipeCreate,
     item2: List[IngredientCreate],
     item3: List[RecipeStepCreate],
+    tags: List[TagCreate],
     db: get_db = Depends(),
 ):
-    result = RecipeService(db).create_recipe(item, item2, item3)
+    result = RecipeService(db).create_recipe(item, item2, item3, tags)
     return handle_result(result)
 
 

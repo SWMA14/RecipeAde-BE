@@ -8,10 +8,10 @@ class TagBase(BaseModel):
 
 
 class TagCreate(TagBase):
-    recipeId: int
-
+    pass
 
 class Tag(TagBase):
+    recipeId: int
     id: int
     deleted: bool
     created_at: datetime = datetime.now()
