@@ -70,8 +70,8 @@ class RecipeStep(RecipeStepBase):
 
 class IngredientBase(BaseModel):
     name: str
-    quantity: int
-    unit: str
+    quantity: Optional[int] = None
+    unit: Optional[str] = None
 
 
 class IngredientCreate(IngredientBase):
