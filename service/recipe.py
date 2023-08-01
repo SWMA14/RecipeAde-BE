@@ -67,7 +67,7 @@ class RecipeCRUD(AppCRUD):
                     recipeSteps : List[RecipeStepCreate]) -> Recipe:
         # youtube = YoutubeAPI()
         # channelID = youtube.findChannelId(channelname)
-        # channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
         if not channel:
             newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(ChannelName=channelname, channelID = channelID))
             self.db.commit()
@@ -77,7 +77,8 @@ class RecipeCRUD(AppCRUD):
                         youtubeTitle = title,
                         youtubeViewCount = viewCount,
                         youtubePublishedAt = publishedAt,
-                        youtubeThumbnail = thumbnail
+                        youtubeThumbnail = thumbnail,
+                        youtubeChannel = channelID
                         )
         self.db.add(recipe)
         self.db.flush()
@@ -93,7 +94,7 @@ class RecipeCRUD(AppCRUD):
         )
         self.db.commit()
         self.db.refresh(recipe)
-        return recipe
+        return channelID
 
     def delete_recipe(self, recipe_id: int):
         recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
