@@ -33,6 +33,7 @@ class Item(BaseModel):
     viewCount:int
     channel:str
     publishedAt:str
+    channelID:str
 
 @router.get("/recommend/", response_model=List[Recipe])
 async def get_recipes_by_same(
@@ -106,6 +107,7 @@ async def insert_data(
         title=item.title,
         viewCount=item.viewCount,
         channelname=item.channel,
+        channelId = item.channelID,
         publishedAt=item.publishedAt,
         ingredients=ingredients,
         recipeSteps=steps

@@ -62,12 +62,12 @@ class RecipeService(AppService):
 
 
 class RecipeCRUD(AppCRUD):
-    def insert_data(self, videoId, thumbnail, title, viewCount, channelname, publishedAt, 
+    def insert_data(self, videoId, thumbnail, title, viewCount, channelname, publishedAt, channelID,
                     ingredients : List[IngredientCreate],
                     recipeSteps : List[RecipeStepCreate]) -> Recipe:
-        youtube = YoutubeAPI()
-        channelID = youtube.findChannelId(channelname)
-        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        # youtube = YoutubeAPI()
+        # channelID = youtube.findChannelId(channelname)
+        # channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
         if not channel:
             newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(ChannelName=channelname, channelID = channelID))
             self.db.commit()
