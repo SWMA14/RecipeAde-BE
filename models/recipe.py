@@ -47,7 +47,7 @@ class Ingredient(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
     name = Column(String(20))
-    quantity = Column(Integer)
+    quantity = Column(String(20))
     unit = Column(String(20))
     recipeId = Column(Integer, ForeignKey("recipes.id"))
 
