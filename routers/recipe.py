@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from service.recipe import RecipeService
+from service.recipe import RecipeService, RecipeCRUD
 from service.recommend import RecommendService
 from schema.schemas import (
     Recipe,
@@ -17,7 +17,7 @@ from utils.service_result import handle_result
 from typing import List,Annotated
 from config.database import get_db
 
-from service.youtubeAPI import YoutubeAPI
+from pydantic import BaseModel
 
 
 router = APIRouter(
@@ -26,6 +26,13 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
+class Item(BaseModel):
+    video:str
+    thumbnail:str
+    title:str
+    viewCount:int
+    channel:str
+    publishedAt:str
 
 @router.get("/recommend/", response_model=List[Recipe])
 async def get_recipes_by_same(
@@ -85,3 +92,21 @@ async def get_items(db: get_db = Depends()):
 @router.delete("/{recipe_id}")
 async def delete_recipe(recipe_id: int, db:get_db = Depends()):
     RecipeService(db).delete_recipe(recipe_id)
+
+@router.post('/insert')
+async def insert_data(
+    item : Item,
+    ingredients: List[IngredientCreate],
+    steps: List[RecipeStepCreate],
+    db: get_db = Depends(),
+    ):
+    res = RecipeCRUD(db).insert_data(
+        videoId=item.video,
+        thumbnail=item.thumbnail,
+        title=item.title,
+        viewCount=item.viewCount,
+        channelname=item.channel,
+        publishedAt=item.publishedAt,
+        ingredients=ingredients,
+        recipeSteps=steps
+    )

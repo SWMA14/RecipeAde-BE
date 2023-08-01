@@ -62,6 +62,39 @@ class RecipeService(AppService):
 
 
 class RecipeCRUD(AppCRUD):
+    def insert_data(self, videoId, thumbnail, title, viewCount, channelname, publishedAt, 
+                    ingredients : List[IngredientCreate],
+                    recipeSteps : List[RecipeStepCreate]) -> Recipe:
+        youtube = YoutubeAPI()
+        channelID = youtube.findChannelId(channelname)
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        if not channel:
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(ChannelName=channelname, channelID = channelID))
+            self.db.commit()
+            channel = newChannel
+        recipe = Recipe(youtubeVideoId = videoId, 
+                        channel=channel,
+                        youtubeTitle = title,
+                        youtubeViewCount = viewCount,
+                        youtubePublishedAt = publishedAt,
+                        youtubeThumbnail = thumbnail
+                        )
+        self.db.add(recipe)
+        self.db.flush()
+        # tags = youtube.getTagById(videoId)
+        # TagCRUD(self.db).create_tags(
+        #     tags, recipe.id
+        # )
+        IngredientCRUD(self.db).create_ingredients(
+            ingredients, recipe.id
+        )
+        RecipeStepCRUD(self.db).create_recipeSteps(
+            recipeSteps, recipe.id
+        )
+        self.db.commit()
+        self.db.refresh(recipe)
+        return recipe
+
     def delete_recipe(self, recipe_id: int):
         recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
         if recipe:
@@ -78,7 +111,7 @@ class RecipeCRUD(AppCRUD):
     ) -> Recipe: # 외래 키 제약조건 위배 -> 레시피 입력 시 채널 추가까지 
         channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
         if not channel:
-            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID=channelID, ChannelName="none"))
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID==channelID, ChannelName="none"))
             self.db.commit()
             channel = newChannel
         # if channel:
@@ -107,13 +140,13 @@ class RecipeCRUD(AppCRUD):
         self.db.refresh(recipe)
         return recipe
 
-    def get_recipe(self, recipe_id: int) -> RecipeResponse:
+    def get_recipe(self, recipe_id: int) -> Recipe:
         recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id, Recipe.deleted == False).first()
         if recipe:
             return recipe
         return None
 
-    def get_recipes(self) -> List[RecipeResponse]:
+    def get_recipes(self) -> List[Recipe]:
         recipe = self.db.query(Recipe).filter(Recipe.deleted == False).all()
         if recipe:
             return recipe
