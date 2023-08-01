@@ -70,7 +70,7 @@ class RecipeStep(RecipeStepBase):
 
 class IngredientBase(BaseModel):
     name: str
-    quantity: Optional[int] = None
+    quantity: Optional[str] = None
     unit: Optional[str] = None
 
 
@@ -99,7 +99,7 @@ class RecipeBase(BaseModel):
     youtubeViewCount: int
     difficulty: Optional[str] = None
     category: Optional[str] = None
-
+    thumbnail: str
 
 class RecipeResponse(RecipeBase):
     id: int

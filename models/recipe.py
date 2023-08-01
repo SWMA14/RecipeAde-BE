@@ -27,6 +27,7 @@ class Recipe(Base):
     youtubeChannel = Column(String(50), ForeignKey("channels.channelID"))
     youtubePublishedAt = Column(String(30))
     youtubeLikeCount = Column(Integer)
+    youtubeThumbnail = Column(Text)
     rating = Column(Float, default=0)
     difficulty = Column(String(20), default="")
     category = Column(String(20), default="")
