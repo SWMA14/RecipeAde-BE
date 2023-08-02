@@ -62,11 +62,11 @@ class RecipeService(AppService):
 
 
 class RecipeCRUD(AppCRUD):
-    def insert_data(self, videoId, thumbnail, title, viewCount, channelname, publishedAt, channelID,
+    def insert_data(self, videoId, thumbnail, title, viewCount, channelname, publishedAt,difficulty, category,
                     ingredients : List[IngredientCreate],
                     recipeSteps : List[RecipeStepCreate]) -> Recipe:
-        # youtube = YoutubeAPI()
-        # channelID = youtube.findChannelId(channelname)
+        youtube = YoutubeAPI()
+        channelID = youtube.findChannelId(channelname)
         channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
         if not channel:
             newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(ChannelName=channelname, channelID = channelID))
@@ -78,14 +78,17 @@ class RecipeCRUD(AppCRUD):
                         youtubeViewCount = viewCount,
                         youtubePublishedAt = publishedAt,
                         youtubeThumbnail = thumbnail,
-                        youtubeChannel = channelID
+                        youtubeChannel = channelID,
+                        difficulty = difficulty,
+                        category = category
                         )
         self.db.add(recipe)
         self.db.flush()
-        # tags = youtube.getTagById(videoId)
-        # TagCRUD(self.db).create_tags(
-        #     tags, recipe.id
-        # )
+        tags = youtube.getTagById(videoId)
+        tagcreate_list = [TagCreate(tagName=tag) for tag in tags]
+        TagCRUD(self.db).create_tags(
+            tagcreate_list, recipe.id
+        )
         IngredientCRUD(self.db).create_ingredients(
             ingredients, recipe.id
         )
@@ -112,7 +115,7 @@ class RecipeCRUD(AppCRUD):
     ) -> Recipe: # 외래 키 제약조건 위배 -> 레시피 입력 시 채널 추가까지 
         channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
         if not channel:
-            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID==channelID, ChannelName="none"))
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID=channelID, ChannelName="none"))
             self.db.commit()
             channel = newChannel
         # if channel:

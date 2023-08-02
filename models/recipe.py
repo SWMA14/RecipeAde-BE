@@ -29,7 +29,7 @@ class Recipe(Base):
     youtubeLikeCount = Column(Integer)
     youtubeThumbnail = Column(Text)
     rating = Column(Float, default=0)
-    difficulty = Column(String(20), default="")
+    difficulty = Column(Integer)
     category = Column(String(20), default="")
 
     ingredients = relationship("Ingredient", back_populates="recipe")

@@ -97,9 +97,9 @@ class RecipeBase(BaseModel):
     youtubeTitle: str
     youtubeChannel: str
     youtubeViewCount: int
-    difficulty: Optional[str] = None
+    difficulty: Optional[int] = None
     category: Optional[str] = None
-    thumbnail: str
+    youtubeThumbnail: str
 
 class RecipeResponse(RecipeBase):
     id: int

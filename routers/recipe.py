@@ -33,7 +33,8 @@ class Item(BaseModel):
     viewCount:int
     channel:str
     publishedAt:str
-    channelID:str
+    difficulty:int
+    category:str
 
 @router.get("/recommend/", response_model=List[Recipe])
 async def get_recipes_by_same(
@@ -85,7 +86,7 @@ async def get_item(item_id: int, db: get_db = Depends()):
     return handle_result(result)
 
 
-@router.get("", response_model=List[RecipeResponse])
+@router.get("", response_model=List[Recipe])
 async def get_items(db: get_db = Depends()):
     result = RecipeService(db).get_recipes()
     return handle_result(result)
@@ -108,7 +109,8 @@ async def insert_data(
         viewCount=item.viewCount,
         channelname=item.channel,
         publishedAt=item.publishedAt,
-        channelID=item.channelID,
+        difficulty=item.difficulty,
+        category=item.category,
         ingredients=ingredients,
         recipeSteps=steps
     )
