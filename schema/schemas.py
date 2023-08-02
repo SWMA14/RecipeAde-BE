@@ -10,6 +10,9 @@ class TagBase(BaseModel):
 class TagCreate(TagBase):
     pass
 
+class TagResponse(TagBase):
+    pass 
+
 class Tag(TagBase):
     recipeId: int
     id: int
@@ -32,6 +35,8 @@ class ChannelBase(BaseModel):
 class ChannelCreate(ChannelBase):
     allowed: Optional[bool] = False
 
+class ChannelResponse(ChannelBase):
+    id:int
 
 class Channel(ChannelBase):
     id: int
@@ -45,13 +50,15 @@ class Channel(ChannelBase):
 
 
 
-
 class RecipeStepBase(BaseModel):
     description: str
     timestamp: str
 
 
 class RecipeStepCreate(RecipeStepBase):
+    pass
+
+class RecipeStepResponse(RecipeStepBase):
     pass
 
 
@@ -78,6 +85,9 @@ class IngredientCreate(IngredientBase):
     pass
 
 
+class IngredientResponse(IngredientBase):
+    pass
+
 class Ingredient(IngredientBase):
     id: int
     deleted: bool
@@ -95,7 +105,6 @@ class Ingredient(IngredientBase):
 class RecipeBase(BaseModel):
     youtubeVideoId: str
     youtubeTitle: str
-    youtubeChannel: str
     youtubeViewCount: int
     difficulty: Optional[int] = None
     category: Optional[str] = None
@@ -104,11 +113,15 @@ class RecipeBase(BaseModel):
 class RecipeResponse(RecipeBase):
     id: int
     rating: float
+    ingredients: List[IngredientResponse]
+    recipesteps: List[RecipeStepResponse]
+    channel:ChannelResponse
 
 
 class RecipeCreate(RecipeBase):
     youtubePublishedAt: str
     youtubeLikeCount: int
+    youtubeChannel: str
 
 
 class Recipe(RecipeBase):
@@ -121,6 +134,7 @@ class Recipe(RecipeBase):
     recipesteps: List[RecipeStep]
     tags: List[Tag]
     rating: float
+    youtubeChannel: str
 
     class Config:
         orm_mode = True
@@ -164,3 +178,6 @@ class ReviewImage(ReviewImageCreate):
     class Config:
         orm_mode = True
         validate_assignment = True
+
+class RecipeResponseDetail(RecipeResponse):
+    reviews:List[Review]

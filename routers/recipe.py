@@ -10,7 +10,8 @@ from schema.schemas import (
     Channel,
     ChannelCreate,
     RecipeResponse,
-    TagCreate
+    TagCreate,
+    RecipeResponseDetail
 )
 
 from utils.service_result import handle_result
@@ -34,7 +35,10 @@ class Item(BaseModel):
     channel:str
     publishedAt:str
     difficulty:int
-    category:str
+    cateogry:str
+    ingredients: List[IngredientCreate]
+    steps: List[RecipeStepCreate]
+
 
 @router.get("/recommend/", response_model=List[Recipe])
 async def get_recipes_by_same(
@@ -68,7 +72,7 @@ async def get_channel(
     return handle_result(result)
 
 
-@router.post("", response_model=Recipe)
+@router.post("", response_model=RecipeResponse)
 async def create_recipe(
     item: RecipeCreate,
     item2: List[IngredientCreate],
@@ -80,13 +84,13 @@ async def create_recipe(
     return handle_result(result)
 
 
-@router.get("/{item_id}", response_model=Recipe)
+@router.get("/{item_id}", response_model=RecipeResponseDetail)
 async def get_item(item_id: int, db: get_db = Depends()):
     result = RecipeService(db).get_recipe(item_id)
     return handle_result(result)
 
 
-@router.get("", response_model=List[Recipe])
+@router.get("", response_model=List[RecipeResponse])
 async def get_items(db: get_db = Depends()):
     result = RecipeService(db).get_recipes()
     return handle_result(result)
@@ -98,8 +102,6 @@ async def delete_recipe(recipe_id: int, db:get_db = Depends()):
 @router.post('/insert')
 async def insert_data(
     item : Item,
-    ingredients: List[IngredientCreate],
-    steps: List[RecipeStepCreate],
     db: get_db = Depends(),
     ):
     res = RecipeCRUD(db).insert_data(
@@ -110,7 +112,8 @@ async def insert_data(
         channelname=item.channel,
         publishedAt=item.publishedAt,
         difficulty=item.difficulty,
-        category=item.category,
-        ingredients=ingredients,
-        recipeSteps=steps
+        category=item.cateogry,
+        ingredients=item.ingredients,
+        recipeSteps=item.steps
     )
+    return res

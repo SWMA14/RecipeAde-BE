@@ -6,6 +6,7 @@ from schema.schemas import (
     ChannelCreate,
     TagCreate,
     RecipeResponse,
+    RecipeResponseDetail
 )
 from typing import List
 from .main import AppCRUD, AppService
@@ -97,7 +98,7 @@ class RecipeCRUD(AppCRUD):
         )
         self.db.commit()
         self.db.refresh(recipe)
-        return channelID
+        return recipe.id
 
     def delete_recipe(self, recipe_id: int):
         recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
@@ -112,7 +113,7 @@ class RecipeCRUD(AppCRUD):
         recipeStep_items: List[RecipeStepCreate],
         channelID: str,
         tags: List[TagCreate]
-    ) -> Recipe: # 외래 키 제약조건 위배 -> 레시피 입력 시 채널 추가까지 
+    ) -> RecipeResponse: # 외래 키 제약조건 위배 -> 레시피 입력 시 채널 추가까지 
         channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
         if not channel:
             newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID=channelID, ChannelName="none"))
@@ -144,13 +145,13 @@ class RecipeCRUD(AppCRUD):
         self.db.refresh(recipe)
         return recipe
 
-    def get_recipe(self, recipe_id: int) -> Recipe:
+    def get_recipe(self, recipe_id: int) -> RecipeResponseDetail:
         recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id, Recipe.deleted == False).first()
         if recipe:
             return recipe
         return None
 
-    def get_recipes(self) -> List[Recipe]:
+    def get_recipes(self) -> List[RecipeResponse]:
         recipe = self.db.query(Recipe).filter(Recipe.deleted == False).all()
         if recipe:
             return recipe
