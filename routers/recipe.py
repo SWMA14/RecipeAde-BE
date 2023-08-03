@@ -39,7 +39,6 @@ class Item(BaseModel):
     ingredients: List[IngredientCreate]
     steps: List[RecipeStepCreate]
 
-
 @router.get("/recommend/", response_model=List[Recipe])
 async def get_recipes_by_same(
     difficulty: str | None = None,
@@ -116,4 +115,16 @@ async def insert_data(
         ingredients=item.ingredients,
         recipeSteps=item.steps
     )
+    return res
+
+@router.post('insertById')
+async def isnert_by_id(
+    videoId: str,
+    difficulty: int,
+    category: str,
+    ingredients:List[IngredientCreate],
+    recipeSteps:List[RecipeStepCreate],
+    db:get_db = Depends()
+):
+    res = RecipeCRUD(db).create_recipe_by_id(videoId=videoId,category=category,difficulty=difficulty, ingredients=ingredients, recipeSteps=recipeSteps)
     return res

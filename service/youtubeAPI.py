@@ -148,7 +148,7 @@ class YoutubeAPI:
         title = youtube_response["items"][0]["snippet"]["title"]
         published_at = youtube_response["items"][0]["snippet"]["publishedAt"]
         #descriptioin = youtube_response["items"][0]["snippet"]["description"]
-        # thumbnail = youtube_response["items"][0]["snippet"]["thumbnails"]["default"]["url"]
+        thumbnail = youtube_response["items"][0]["snippet"]["thumbnails"]["default"]["url"]
         channel_id = youtube_response["items"][0]["snippet"]["channelId"]
         duration = youtube_response["items"][0]["contentDetails"]["duration"]
         parsed_duration = isodate.parse_duration(duration)
@@ -172,11 +172,12 @@ class YoutubeAPI:
             youtubeVideoId=videoId,
             youtubeTitle=title,
             youtubeViewCount=view_count,
-            difficulty="",
+            difficulty=0,
             category="",
             youtubePublishedAt=published_at,
             youtubeLikeCount=like_count,
-            youtubeChannel=channel_id
+            youtubeChannel=channel_id,
+            youtubeThumbnail=thumbnail
             #youtubeTag=tags
             #youtubeDescription=descriptioin,  # 추후 빼야함
             #youtubeCaption=(processed_data),  # 추후 빼야함

@@ -156,7 +156,35 @@ class RecipeCRUD(AppCRUD):
         if recipe:
             return recipe
         return None
-
+    
+    def create_recipe_by_id(self, videoId:str, category:str, difficulty: int, ingredients: List[IngredientCreate], recipeSteps: List[RecipeStepCreate]) -> Recipe:
+        youtube = YoutubeAPI()
+        recipe_data, tags, channelId = youtube.getVideoInfoById(videoId = videoId)
+        recipe_data.category = category
+        recipe_data.difficulty = difficulty
+        channelName = youtube.get_channelInfo(channelId).ChannelName
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelId)
+        if not channel:
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID=channelId, ChannelName=channelName))
+            self.db.commit()
+            channel = newChannel
+        
+        recipe = Recipe(**recipe_data.dict(), channel=channel)
+        self.db.add(recipe)
+        self.db.flush()
+        tagcreate_list = [TagCreate(tagName=tag) for tag in tags]
+        TagCRUD(self.db).create_tags(
+            tagcreate_list, recipe.id
+        )
+        IngredientCRUD(self.db).create_ingredients(
+            ingredients, recipe.id
+        )
+        RecipeStepCRUD(self.db).create_recipeSteps(
+            recipeSteps, recipe.id
+        )
+        self.db.commit()
+        self.db.refresh(recipe)
+        return recipe
 
 class IngredientCRUD(AppCRUD):
     def create_ingredients(
