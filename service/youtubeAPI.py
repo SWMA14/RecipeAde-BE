@@ -154,9 +154,10 @@ class YoutubeAPI:
         parsed_duration = isodate.parse_duration(duration)
         run_time = parsed_duration.total_seconds()
 
-        if run_time > 60:  # 쇼츠는 tags가 없는 것도 있던데...?
-            tags = youtube_response["items"][0]["snippet"]["tags"]
-        else:
+
+
+        tags = youtube_response["items"][0]["snippet"].get("tags")
+        if tags == None:
             tags = []
         #category = youtube_response["items"][0]["topicDetails"]["topicCategories"]
 
@@ -182,8 +183,7 @@ class YoutubeAPI:
             #youtubeDescription=descriptioin,  # 추후 빼야함
             #youtubeCaption=(processed_data),  # 추후 빼야함
         )
-
-
+        print(tags)
         return (
             recipe_data,
             tags,
