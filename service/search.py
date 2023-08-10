@@ -1,4 +1,4 @@
-from models.recipe import Recipe,Tag
+from models.recipe import Recipe,Tag, Channel
 from .main import AppCRUD, AppService
 from typing import List
 from utils.service_result import ServiceResult
@@ -21,8 +21,10 @@ class SearchCRUD(AppCRUD):
         searchChannel = "%{}%".format(keyword)
         searchTag = "%{}%".format(keyword)
         tags = self.db.query(Tag).filter(Tag.tagName.like(searchTag)).all()
+        channels = self.db.query(Channel).filter(Channel.ChannelName.like(searchChannel)).all()
         recipeIds = [tag.recipeId for tag in tags]
-        query = query.filter(or_(Recipe.youtubeTitle.like(searchtitle), Recipe.youtubeChannel.like(searchChannel), Recipe.id.in_(recipeIds)), Recipe.deleted==False)
+        channelIds = [channel.channelID for channel in channels]
+        query = query.filter(or_(Recipe.youtubeTitle.like(searchtitle), Recipe.youtubeChannel.in_(channelIds), Recipe.id.in_(recipeIds)), Recipe.deleted==False)
         if category:
             query = query.filter(Recipe.category == category, Recipe.deleted == False)
         if diff:
