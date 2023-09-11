@@ -11,7 +11,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from config.database import Base
-
+from sqlalchemy.types import Uuid
+from uuid import uuid4
 
 class Recipe(Base):
     __tablename__ = "recipes"
@@ -127,3 +128,17 @@ class ReviewImage(Base):
     fileName = Column(String(50))
 
     review = relationship("Review",back_populates="reviewImages")
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    name = Column(String(30))
+    email = Column(String(50))
+    password = Column(String(100))
+    age = Column(String(10))
+    gender = Column(String(10))

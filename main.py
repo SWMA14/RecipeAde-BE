@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from config.database import create_tables
-from routers import recipe,search,review
+from routers import recipe,search,review,login
 import uvicorn
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -48,6 +48,7 @@ create_tables()
 app.include_router(recipe.router)
 app.include_router(search.router)
 app.include_router(review.router)
+app.include_router(login.router)
 
 @app.get("/")
 def root():

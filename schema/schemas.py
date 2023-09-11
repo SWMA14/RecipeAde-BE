@@ -1,6 +1,7 @@
 from typing import List, Optional
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, root_validator, Field
 from datetime import datetime
+from uuid import uuid4, UUID
 
 
 class TagBase(BaseModel):
@@ -181,3 +182,29 @@ class ReviewImage(ReviewImageCreate):
 
 class RecipeResponseDetail(RecipeResponse):
     reviews:List[Review]
+
+class UserBase(BaseModel):
+    password: str
+    email: str
+    
+
+class UserSignin(UserBase):
+    name: str
+
+class UserSignUp(UserSignin):
+    gender: str
+    age: str
+
+class User(UserSignUp):
+    id: UUID
+    deleted: bool
+    created_at: datetime = datetime.now()
+    updated_at: datetime = datetime.now()
+
+    class Config:
+        orm_mode = True
+        validate_assignment = True
+
+class Token(BaseModel):
+    access_token: str
+    refresh_token: str
