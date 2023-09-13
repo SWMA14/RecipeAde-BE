@@ -49,3 +49,11 @@ class AppException(object):
             """
             status_code = 401
             AppExceptionCase.__init__(self, status_code, context)
+
+    class FooInvalidToken(AppExceptionCase):
+        def __init__(self, context: dict = None):
+            """
+            Item is not public and requires auth
+            """
+            status_code = 402
+            AppExceptionCase.__init__(self, status_code, context)
