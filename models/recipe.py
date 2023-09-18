@@ -142,3 +142,15 @@ class User(Base):
     password = Column(String(100))
     age = Column(String(10))
     gender = Column(String(10))
+
+# class CustomRecipe(Base):
+#     __tablename__ = "custom"
+#     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+#     deleted = Column(Boolean, default=False)
+#     created_at = Column(DateTime, default=datetime.now)
+#     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+#     userid = Column(String(30))
+#     content = Column
+#     youtubeId = Column
+#     recipestep = Column

@@ -8,13 +8,11 @@ from .main import AppCRUD, AppService
 from utils.service_result import ServiceResult
 from utils.app_exceptions import AppException
 from fastapi import requests, HTTPException, status
-import requests
 from service.token import Token,googleOauth,AppleOauth2
-ACCESS_TOKEN_EXPIRE=30
-REFRESH_TOKEN_EXPIRE=60*24*7
-ALG='HS256'
-JWT_SECRET_KEY='RecipeAde_secret'
-JWT_REFRESH_KEY='RecipeAde_refresh'
+from fastapi.responses import RedirectResponse
+import re
+ACCESS_TOKEN_EXPIRE=30 # 30분
+REFRESH_TOKEN_EXPIRE=60*24*7 # 7일
 
 class UserSerivce(AppService):
     def oauth_signup(self, token,platform):
@@ -41,6 +39,11 @@ class UserSerivce(AppService):
         if not "Bearer" in token:
             return ServiceResult(AppException.FooInvalidToken({"msg":"Invalid refresh-Token form"}))
         return ServiceResult(UserCRUD(self.db).refresh_tokens(token[7:]))
+    def email_validate(self,email:str):
+        return ServiceResult(UserCRUD(self.db).email_validate(email))
+    def get_access_token_apple(self,code:str):
+        return 
+        
 class UserCRUD(AppCRUD):
     def oauth_signup_and_login(self, token: str, platform: str):
         userdata = AppleOauth2().get_user_info(token) if platform == "apple" else googleOauth().get_user_info(token)
@@ -102,3 +105,11 @@ class UserCRUD(AppCRUD):
             "access_token":Token.create_access_token({"email":email}),
             "refresh_token":Token.create_refresh_token({"email":email})
         }
+    def email_validate(self,email:str):
+        pattern = r"[a-zA-Z0-9-+.]+@[a-zA-Z]+\.\w+"
+        if not re.match(pattern,email):
+            return AppException.FooCreateItem({"msg":"Invalid Email Form"})
+        find_user = self.db.query(User).filter(User.email==email).first()
+        if find_user:
+            return AppException.FooCreateItem({"msg":"email alredy exist"})
+        return {"msg":"valid Email Form"}
