@@ -91,3 +91,10 @@ async def apple_login(
     db:get_db=Depends()
 ):
     return UserSerivce(db).oauth_signup(code,"apple")
+
+@router.post("/oauth_apple")
+async def apple_login(
+    req:Request,
+    db:get_db=Depends()
+):
+    print(req)
