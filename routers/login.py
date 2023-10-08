@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Depends, Header, Request, Form
+from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated, Union
 from config.database import get_db
 from service.user import UserSerivce
-from schema.schemas import UserSignin,UserBase
+from schema.schemas import UserSignin,UserBase,token,UserSignUp
 from utils.service_result import handle_result
 from pydantic import BaseModel
 from fastapi.responses import RedirectResponse
-from service.token import googleOauth,AppleOauth2
-
-class Refresh_token(BaseModel):
-    refresh_token:str
+from service.token import googleOauth,AppleOauth2,Token
 
 router = APIRouter(
     prefix="/login",
@@ -17,50 +15,53 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-@router.get('/oauth/google')
-async def signup_google(
-    Authorization: Union[str,None] = Header(default=""),
-    db: get_db=Depends()
-):
-    return handle_result(UserSerivce(db).oauth_signup(Authorization,"google"))
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="tokenUrl", auto_error=False)
 
-@router.get('/oauth/apple')
-async def signup_apple(
-    Authorization: Union[str,None] = Header(default=""),
+@router.post('/oauth/google')
+async def signup_google(
+    token: token,
     db: get_db=Depends()
 ):
-    return handle_result(UserSerivce(db).oauth_signup(Authorization,"apple"))
+    return handle_result(UserSerivce(db).oauth_signup(token,"google"))
+
+@router.post('/oauth/apple')
+async def signup_apple(
+    token: token,
+    db: get_db=Depends()
+):
+    return handle_result(UserSerivce(db).oauth_signup(token,"apple"))
 
 @router.post('/signup')
 async def system_signup(
-    user: UserSignin,
+    user: UserSignUp,
     db: get_db=Depends()
 ):
-    return UserSerivce(db).create_user_email(user)
+    res = UserSerivce(db).create_user_email(user)
+    return handle_result(res)
 
 @router.post('/')
 async def login(
     user: UserBase,
     db: get_db=Depends()
 ):
-    return UserSerivce(db).user_login_email(user)
+    res = UserSerivce(db).user_login_email(user)
+    return handle_result(res)
 
 @router.get('/me')
 async def userinfo(
-    Authorization: Union[str,None] = Header(default=""),
+    Authorization: str = Depends(oauth2_scheme),
     db: get_db=Depends()
 ):
     return handle_result(UserSerivce(db).get_current_user(Authorization))
 
 @router.post('/refresh')
 async def refresh_access_token(
-    #refresh:Refresh_token,
-    Authorization: Union[str,None] = Header(default=""),
-    db: get_db=Depends()
+    token:token,
 ):
-    return handle_result(UserSerivce(db).refresh_token(Authorization))
+    res = Token.refresh_token(token)
+    return handle_result(res)
 
-@router.get('/possible')
+@router.get('/email-validation')
 async def email_validate(
     email: str,
     db: get_db=Depends()
@@ -80,21 +81,15 @@ async def callback(
     code = req.query_params.get("code")
     return googleOauth().get_user_info(code)
 
-@router.get("/apple/token")
-async def get_code(
-):
-    return RedirectResponse(AppleOauth2.get_auth_code())
-
-@router.post("/apple/callback")
-async def apple_login(
-    code:Annotated[str,Form()],
+@router.get("/all-user")
+async def get_users(
     db:get_db=Depends()
 ):
-    return UserSerivce(db).oauth_signup(code,"apple")
+    users = UserSerivce(db).get_users()
+    return handle_result(users)
 
-@router.post("/oauth_apple")
-async def apple_login(
-    req:Request,
-    db:get_db=Depends()
+@router.post("/logout")
+async def logout(
+    Authorization: str = Depends(oauth2_scheme)
 ):
-    print(req)
+    return Token.del_refresh_token(Authorization)

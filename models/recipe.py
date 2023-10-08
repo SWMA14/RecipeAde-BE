@@ -143,14 +143,23 @@ class User(Base):
     age = Column(String(10))
     gender = Column(String(10))
 
-# class CustomRecipe(Base):
-#     __tablename__ = "custom"
-#     id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
-#     deleted = Column(Boolean, default=False)
-#     created_at = Column(DateTime, default=datetime.now)
-#     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    recipes = relationship("Customize",back_populates="user")
 
-#     userid = Column(String(30))
-#     content = Column
-#     youtubeId = Column
-#     recipestep = Column
+class Customize(Base):
+    __tablename__ = "customize"
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    title = Column(String(50))
+    sourceId = Column(String(30))
+    steps = Column(Text)
+    tags = Column(Text)
+    difficulty = Column(String(10))
+    category = Column(String(20))
+    ingredients = Column(Text)
+
+    userId = Column(Uuid(as_uuid=True),ForeignKey("users.id"))
+
+    user = relationship("User",back_populates="recipes")

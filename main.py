@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from config.database import create_tables
-from routers import recipe,search,review,login
+from routers import recipe,search,review,login,customize
 import uvicorn
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -11,7 +11,6 @@ from utils.request_exceptions import (
 from utils.app_exceptions import AppExceptionCase
 from utils.app_exceptions import app_exception_handler
 from fastapi.middleware.cors import CORSMiddleware
-
 
 app = FastAPI()
 
@@ -49,6 +48,8 @@ app.include_router(recipe.router)
 app.include_router(search.router)
 app.include_router(review.router)
 app.include_router(login.router)
+app.include_router(customize.router)
+
 
 @app.get("/")
 def root():

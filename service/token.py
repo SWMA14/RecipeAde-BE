@@ -9,11 +9,12 @@ import jwt
 import os
 from utils.app_exceptions import AppException
 import urllib.parse
-import time
+import redis
+from schema.schemas import token
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-ACCESS_TOKEN_EXPIRE = 1
+ACCESS_TOKEN_EXPIRE = 30
 REFRESH_TOKEN_EXPIRE = 60 * 24 * 7
 ALG = os.getenv("ALGORYTHM")
 JWT_SECRET_KEY=os.getenv("JWT_SECRET_KEY")
@@ -21,84 +22,24 @@ JWT_REFRESH_KEY=os.getenv("JWT_REFRESH_KEY")
 
 load_dotenv()
 
+def redis_config() -> redis.Redis:
+    try:
+        rd = redis.Redis("host.docker.internal",6379,charset="UTF-8",db=0,decode_responses=True)
+        return rd
+    except:
+        raise AppException.FooInvalidToken({"msg":"redis connection failed"})
+
 class AppleOauth2:
-    """
-    Apple Authentication Backend
-    """
+    def get_user_info(self, token):
+        try:
+            token_decode = jwt.decode(token,"",options={"verify_signature":False})
+            email = token_decode["email"]
+            return {
+                "email":email
+            }
+        except:
+            raise AppException.FooInvalidToken({"msg":"invalid apple id_token"})
 
-    __name__ = "apple"
-    ACCESS_TOKEN_URL = "https://appleid.apple.com/auth/token"
-
-    def get_auth_code():
-        url="https://appleid.apple.com/auth/authorize?"
-        params={
-            "client_id":"net.recipeade.svelte",
-            "redirect_uri":"https://recipeade.net/login/oauth_apple",
-            "response_type":"code",
-            "scope":"name email",
-            "response_mode":"form_post"
-        }
-        redirect_url = url+urllib.parse.urlencode(params)
-        return redirect_url
-    
-
-    def get_user_info(self, code):
-        response_data = {}
-        client_id = "net.recipeade.svelte"
-        client_secret = self.get_key_and_secret()
-
-        headers = {"content-type": "application/x-www-form-urlencoded"}
-        data = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "code": code,
-            "grant_type": "authorization_code",
-            "redirect_uri": "https://recipeade.net/login/oauth_apple",
-        }
-
-        res = requests.post(AppleOauth2.ACCESS_TOKEN_URL, data=data, headers=headers)
-        response_dict = res.json()
-        print(response_dict)
-        id_token = response_dict.get("id_token", None)
-
-        if not id_token:
-            raise AppException.FooInvalidToken({"msg":"Invalid Token"})
-        
-        token_decode = jwt.decode(id_token,"",options={"verify_signature":False})
-        print(token_decode)
-        # if id_token:
-        #     decoded = jwt.decode(id_token, "", verify=False)
-        #     response_data.update(
-        #         {"email": decoded["email"]} if "email" in decoded else None
-        #     )
-        #     response_data.update({"name": decoded["sub"]} if "sub" in decoded else None)
-
-        return {}
-
-    def get_key_and_secret(self):
-        """
-        Get Key and Secret from settings
-        """
-        headers = {
-            "kid": os.getenv("SOCIAL_AUTH_APPLE_KEY_ID"),
-            "alg":"ES256"
-        }
-
-        payload = {
-            "iss": "49AL3MH8WT",
-            "iat": time.time(),
-            "exp": time.time() + 600,
-            "aud": "https://appleid.apple.com",
-            "sub": os.getenv("SOCIAL_AUTH_CLIENT_ID"),
-        }
-
-        client_secret = jwt.encode(
-            payload=payload,
-            key=os.getenv("SOCIAL_AUTH_APPLE_PRIVATE_KEY"),
-            algorithm='ES256',
-            headers=headers,
-        )
-        return client_secret
 
 class googleOauth:
     def get_auth_code():
@@ -149,10 +90,8 @@ class googleOauth:
         )
         response = res.json()
         email = response.get("email")
-        name = response.get("name")
         return {
-            "email":email,
-            "name":name
+            "email":email
         }
     
 class Token:
@@ -188,9 +127,51 @@ class Token:
         key = JWT_SECRET_KEY if type=="access_token" else JWT_REFRESH_KEY
         try:
             payload = jwt.decode(token,key,algorithms=ALG)
-            print(payload)
         except jwt.exceptions.InvalidSignatureError:
             raise AppException.FooInvalidToken({"msg":"invalid token"})
         except jwt.exceptions.ExpiredSignatureError:
             raise AppException.FooInvalidToken({"msg":"token expired"})
+        except Exception as e:
+            raise AppException.FooInvalidToken({"msg":e})
         return payload.get("email")
+    
+    def set_refresh_token(email:str, token:str):
+        try:
+            rd = redis_config()
+            rd.set(email,token)
+        except Exception as e:
+            raise AppException.FooInvalidToken({"msg":"set refresh token failed"})
+
+    def del_refresh_token(token:str):
+        try:
+            email = Token.jwt_decode(token,"access_token")
+            rd = redis_config()
+            rd.delete(email)
+        except:
+            raise AppException.FooInvalidToken({"msg":"delete refresh token failed"})
+    
+    def create_token(email:str):
+        access_token = Token.create_access_token({"email":email})
+        refresh_token = Token.create_refresh_token({"email":email})
+        Token.set_refresh_token(email,refresh_token)
+        return access_token,refresh_token
+    
+    def refresh_token(refresh:token):
+        if not refresh.token_type == "refresh_token":
+            raise AppException.FooInvalidToken({"msg":"not refresh token"})
+        rd = redis_config()
+        token = refresh.token
+        try:
+            email = Token.jwt_decode(token,"refresh")
+            if rd.get(email) == token:
+                access_token = Token.create_access_token({"email":email})
+                refresh_token = Token.create_refresh_token({"email":email})
+                rd.set(email,refresh_token)
+                return {
+                    "access_token":access_token,
+                    "refresh_token":refresh_token
+                }
+            else:
+                raise AppException.FooInvalidToken({"msg":"Invalid Refresh Token"})
+        except Exception as e:
+            raise AppException.FooGetItem({"msg":"no refresh token exist"})

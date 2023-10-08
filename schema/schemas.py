@@ -205,6 +205,24 @@ class User(UserSignUp):
         orm_mode = True
         validate_assignment = True
 
-class Token(BaseModel):
-    access_token: str
-    refresh_token: str
+class token(BaseModel):
+    token_type:str
+    token:str
+
+class CustomizeBase(BaseModel):
+    title: str
+    steps: str
+    tags: str
+    difficulty: str
+    category: str
+
+class CustomizeCreate(CustomizeBase):
+    sourceId: str
+    ingredients: List[IngredientCreate]
+
+class CustomizeUpdate(CustomizeBase):
+    pass
+
+class CustomizeRecipe(CustomizeBase):
+    userId: UUID
+    sourceId: str
