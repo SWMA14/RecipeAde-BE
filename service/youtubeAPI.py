@@ -147,7 +147,7 @@ class YoutubeAPI:
 
         title = youtube_response["items"][0]["snippet"]["title"]
         published_at = youtube_response["items"][0]["snippet"]["publishedAt"]
-        #descriptioin = youtube_response["items"][0]["snippet"]["description"]
+        descriptioin = youtube_response["items"][0]["snippet"]["description"]
         thumbnail = youtube_response["items"][0]["snippet"]["thumbnails"]["default"]["url"]
         channel_id = youtube_response["items"][0]["snippet"]["channelId"]
         duration = youtube_response["items"][0]["contentDetails"]["duration"]
@@ -183,11 +183,11 @@ class YoutubeAPI:
             #youtubeDescription=descriptioin,  # 추후 빼야함
             #youtubeCaption=(processed_data),  # 추후 빼야함
         )
-        print(tags)
         return (
             recipe_data,
             tags,
             channel_id,
+            descriptioin
         )
 
     def get_channelInfo(self, channelID: str) -> ChannelCreate:
