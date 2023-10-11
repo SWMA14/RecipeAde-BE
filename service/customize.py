@@ -59,10 +59,10 @@ class CustomizeCRUD(AppCRUD):
     def __init__(self, db: Session, token: str):
         super().__init__(db)
         self.token = token
-        try:
-            self.user = UserCRUD(db).get_current_user(token)
-        except:
-            raise AppException.FooInvalidToken({"msg":"invalid token"})
+        # try:
+        #     self.user = UserCRUD(db).get_current_user(token)
+        # except:
+        #     raise AppException.FooInvalidToken({"msg":"invalid token"})
         
     def get_customize(self, recipeId: str):
         try:
