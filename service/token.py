@@ -42,57 +42,27 @@ class AppleOauth2:
 
 
 class googleOauth:
-    def get_auth_code():
-        url = "https://accounts.google.com/o/oauth2/v2/auth?"
-        params={
-            "client_id":"594394059261-nkb6pv31v11a0h7ijm1too2bqv7jpel7.apps.googleusercontent.com",
-            "redirect_uri":"http://localhost:8000/login/callback",
-            "scope":"https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile",
-            "response_type":"code"
-        }
-        redirect_url = url+urllib.parse.urlencode(params)
-        return redirect_url
-    def get_access_token(self,code):
-        url = "https://oauth2.googleapis.com/token"
-        headers = {"content-type": "application/x-www-form-urlencoded"}
-        data = {
-            "code":code,
-            "client_id":"594394059261-nkb6pv31v11a0h7ijm1too2bqv7jpel7.apps.googleusercontent.com",
-            "redirect_uri":"http://localhost:8000/login/callback",
-            "grant_type":"authorization_code",
-            "client_secret":"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"
-        }
-        res = requests.post(
-            url,data=data,headers=headers
-        )
-        access_token = res.json().get("access_token")
-        return access_token
-
     def get_user_info(self,code):
-        url = "https://oauth2.googleapis.com/token"
-        headers = {"content-type": "application/x-www-form-urlencoded"}
-        data = {
-            "code":code,
-            "client_id":"594394059261-nkb6pv31v11a0h7ijm1too2bqv7jpel7.apps.googleusercontent.com",
-            "redirect_uri":"http://localhost:8000/login/callback",
-            "grant_type":"authorization_code",
-            "client_secret":"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"
-        }
-        code_res = requests.post(
-            url,data=data,headers=headers
-        )
-        token = code_res.json().get("access_token")
-        res = requests.get(
-            "https://www.googleapis.com/oauth2/v3/userinfo",
-            params={
-                'access_token': token
+        try:
+            token_decode = jwt.decode(code,"",options={"verify_signature":False})
+            email = token_decode["email"]
+            return {
+                "email":email
             }
-        )
-        response = res.json()
-        email = response.get("email")
-        return {
-            "email":email
-        }
+        except:
+            raise AppException.FooInvalidToken({"msg":"invalid google id_token"})
+        # res = requests.get(
+        #     "https://www.googleapis.com/oauth2/v3/userinfo",
+        #     params={
+        #         'access_token': code
+        #     }
+        # )
+        # response = res.json()
+        # print(response)
+        # email = response.get("email")
+        # return {
+        #     "email":email
+        # }
     
 class Token:
     def get_hashed_pwd(password: str) -> str:

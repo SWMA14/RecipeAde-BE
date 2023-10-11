@@ -44,7 +44,8 @@ class UserCRUD(AppCRUD):
         email = userdata["email"]
         find_user = self.db.query(User).filter(User.email == email).first()
         if not find_user:
-            raise AppException.FooGetItem({"msg":"not exist oauth user"})
+            new_user = User(email = email)
+            self.db.add(new_user)
         access_token,refresh_token = Token.create_token(email)
         return {
             "access_token":access_token,
