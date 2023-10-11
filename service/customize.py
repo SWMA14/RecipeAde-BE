@@ -11,7 +11,7 @@ from .main import AppCRUD, AppService
 from utils.service_result import ServiceResult
 from utils.app_exceptions import AppException
 from service.user import UserCRUD
-from fastapi import Depends
+from fastapi import Depends, BackgroundTasks
 from sqlalchemy import or_,desc
 from config.database import get_db
 import uuid
@@ -58,7 +58,7 @@ class CustomizeService(AppService):
 class CustomizeCRUD(AppCRUD):
     def __init__(self, db: Session, token: str):
         super().__init__(db)
-        self.token = token
+        #self.token = token
         # try:
         #     self.user = UserCRUD(db).get_current_user(token)
         # except:
@@ -296,17 +296,8 @@ class CustomizeCRUD(AppCRUD):
                 "ingredient":ingredient_res,
                 "steps":steps_res
             }
-        
-    def create_default(self,url:str):
+    def create_default_background(self,sourceId:str):
         try:
-            sourceId = self.check_valid_url(url)
-            defaultRecipe = self.find_exist_default(sourceId)
-            if defaultRecipe:
-                return {
-                    "ingredient":defaultRecipe["ingredient"],
-                    "steps":defaultRecipe["steps"]
-                }
-            
             if self.sub_exist(sourceId):
                 print("yt sub")
                 script = self.get_trans_by_youtube(sourceId)
@@ -322,9 +313,22 @@ class CustomizeCRUD(AppCRUD):
             )
             self.db.add(new_default_recipe)
             self.db.commit()
+        except Exception as e:
+            print(e)
+
+    def create_default(self,url:str,backgroudtasks:BackgroundTasks):
+        try:
+            sourceId = self.check_valid_url(url)
+            defaultRecipe = self.find_exist_default(sourceId)
+            if defaultRecipe:
+                return {
+                    "ingredient":defaultRecipe["ingredient"],
+                    "steps":defaultRecipe["steps"]
+                }
+            
+            backgroudtasks.add_task(self.create_default_background,sourceId)
             return {
-                "ingredient":ingredients,
-                "steps":steps
+                "msg":"process started"
             }
         except Exception as e:
             print(e)

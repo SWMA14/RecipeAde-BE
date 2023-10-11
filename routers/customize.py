@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
 from service.recipe import RecipeService, RecipeCRUD
 from service.recommend import RecommendService
@@ -70,8 +70,9 @@ async def delete_customize(
 @router.get("/create_default")
 async def test(
     sourceLink: str,
+    backgroud_tasks: BackgroundTasks,
     token:str = Depends(oauth2_scheme),
-    db:get_db = Depends()
+    db:get_db = Depends(),
 ):
-    res = CustomizeCRUD(db,token).create_default(sourceLink)
-    return res  
+    res = CustomizeCRUD(db,token).create_default(sourceLink,backgroud_tasks)
+    return res
