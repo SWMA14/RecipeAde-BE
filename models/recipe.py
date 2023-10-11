@@ -163,3 +163,14 @@ class Customize(Base):
     userId = Column(Uuid(as_uuid=True),ForeignKey("users.id"))
 
     user = relationship("User",back_populates="recipes")
+
+class DefaultRecipe(Base):
+    __tablename__ = "defaultRecipe"
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    deleted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    videoId = Column(String(50))
+    steps = Column(Text)
+    ingredients = Column(Text)

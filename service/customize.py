@@ -1,9 +1,10 @@
 from sqlalchemy.orm import Session
-from models.recipe import Customize
+from models.recipe import Customize, DefaultRecipe
 from schema.schemas import (
     CustomizeCreate,
     CustomizeUpdate,
-    User
+    User,
+    DefaultRecipeBase
 )
 from typing import List
 from .main import AppCRUD, AppService
@@ -58,10 +59,10 @@ class CustomizeCRUD(AppCRUD):
     def __init__(self, db: Session, token: str):
         super().__init__(db)
         self.token = token
-        # try:
-        #     self.user = UserCRUD(db).get_current_user(token)
-        # except:
-        #     raise AppException.FooInvalidToken({"msg":"invalid token"})
+        try:
+            self.user = UserCRUD(db).get_current_user(token)
+        except:
+            raise AppException.FooInvalidToken({"msg":"invalid token"})
         
     def get_customize(self, recipeId: str):
         try:
@@ -105,10 +106,11 @@ class CustomizeCRUD(AppCRUD):
             raise AppException.FooGetItem({"msg":"invalid recipe id"})
         
     def check_valid_url(self, sourceLink:str):
-        pattern = r"https\:\/\/www\.youtube\.com\/watch\?v=([\d\D]+)"
-        if not re.match(pattern,sourceLink):
+        pattern1 = r"https\:\/\/www\.youtube\.com\/watch\?v=([\d\D]+)"
+        pattern2 = r"https\:\/\/youtu\.be\/(.+)\?[\d\D]+"
+        if not re.match(pattern1,sourceLink) and not re.match(pattern2,sourceLink):
             raise AppException.FooCreateItem({"msg":"invalid youtube link"})
-        match = re.search(pattern,sourceLink)
+        match = re.search(pattern1,sourceLink) or re.search(pattern2,sourceLink)
         sourceId = str(match.group(1))
         return sourceId
         
@@ -285,9 +287,26 @@ class CustomizeCRUD(AppCRUD):
             trans = transcript_list.find_manually_created_transcript(['en'])
             return trans
         
+    def find_exist_default(self,videoId):
+        default = self.db.query(DefaultRecipe).filter(DefaultRecipe.videoId == videoId).first()
+        if default:
+            ingredient_res = eval(default.ingredients)
+            steps_res = eval(default.steps)
+            return {
+                "ingredient":ingredient_res,
+                "steps":steps_res
+            }
+        
     def create_default(self,url:str):
         try:
             sourceId = self.check_valid_url(url)
+            defaultRecipe = self.find_exist_default(sourceId)
+            if defaultRecipe:
+                return {
+                    "ingredient":defaultRecipe["ingredient"],
+                    "steps":defaultRecipe["steps"]
+                }
+            
             if self.sub_exist(sourceId):
                 print("yt sub")
                 script = self.get_trans_by_youtube(sourceId)
@@ -295,7 +314,14 @@ class CustomizeCRUD(AppCRUD):
                 print("whisper sub")
                 script = self.get_trans_by_whisper(sourceId)
             ingredients = self.get_ingredient_by_script(script)
-            steps = self.get_steps_by_script(script)
+            steps = self.get_steps_by_script(script)["steps"]
+            new_default_recipe = DefaultRecipe(
+                steps = str(steps),
+                ingredients = str(ingredients),
+                videoId = sourceId
+            )
+            self.db.add(new_default_recipe)
+            self.db.commit()
             return {
                 "ingredient":ingredients,
                 "steps":steps

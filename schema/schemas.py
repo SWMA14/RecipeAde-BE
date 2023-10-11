@@ -226,3 +226,14 @@ class CustomizeUpdate(CustomizeBase):
 class CustomizeRecipe(CustomizeBase):
     userId: UUID
     sourceId: str
+
+class DefaultRecipeBase(BaseModel):
+    steps: str
+    ingredients: str
+    videoId: str
+
+class DefaultRecipe(DefaultRecipeBase):
+    id: UUID
+    deleted: bool
+    created_at: datetime = datetime.now()
+    updated_at: datetime = datetime.now()
