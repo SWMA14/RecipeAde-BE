@@ -5,7 +5,8 @@ from service.recommend import RecommendService
 from service.user import UserCRUD
 from schema.schemas import (
     CustomizeCreate,
-    CustomizeUpdate
+    CustomizeUpdate,
+    CustomizeRecipeResponse
 )
 from schema.schemas import User
 from utils.service_result import handle_result
@@ -22,7 +23,7 @@ router = APIRouter(
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="tokenUrl", auto_error=False)
 
-@router.get("/recipe/{recipeId}")
+@router.get("/recipe/{recipeId}", response_model=CustomizeRecipeResponse)
 async def get_customize(
     recipeId:str,
     token:str = Depends(oauth2_scheme),
@@ -31,7 +32,7 @@ async def get_customize(
     res = CustomizeService(db,token).get_customize(recipeId)
     return handle_result(res)
 
-@router.get("/recipes")
+@router.get("/recipes", response_model=List[CustomizeRecipeResponse])
 async def get_recipes(
     token:str = Depends(oauth2_scheme),
     db: get_db = Depends()

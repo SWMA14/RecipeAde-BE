@@ -24,7 +24,7 @@ load_dotenv()
 
 def redis_config() -> redis.Redis:
     try:
-        rd = redis.Redis("host.docker.internal",6379,charset="UTF-8",db=0,decode_responses=True)
+        rd = redis.Redis("redis",6379,charset="UTF-8",db=0,decode_responses=True)
         return rd
     except:
         raise AppException.FooInvalidToken({"msg":"redis connection failed"})

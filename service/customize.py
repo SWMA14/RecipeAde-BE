@@ -4,7 +4,8 @@ from schema.schemas import (
     CustomizeCreate,
     CustomizeUpdate,
     User,
-    DefaultRecipeBase
+    DefaultRecipeBase,
+    CustomizeRecipeResponse
 )
 from typing import List
 from .main import AppCRUD, AppService
@@ -23,6 +24,9 @@ import json
 from pytube import YouTube
 import openai
 import os
+from service.token import redis_config
+from datetime import datetime
+from fastapi.encoders import jsonable_encoder
 
 class CustomizeService(AppService):
     def __init__(self, db: Session, token:str):
@@ -58,30 +62,54 @@ class CustomizeService(AppService):
 class CustomizeCRUD(AppCRUD):
     def __init__(self, db: Session, token: str):
         super().__init__(db)
-        #self.token = token
-        # try:
-        #     self.user = UserCRUD(db).get_current_user(token)
-        # except:
-        #     raise AppException.FooInvalidToken({"msg":"invalid token"})
+        self.rd = redis_config()
+        self.token = token
+        try:
+            self.user = UserCRUD(db).get_current_user(token)
+        except:
+            raise AppException.FooInvalidToken({"msg":"invalid token"})
         
-    def get_customize(self, recipeId: str):
+    def get_customize(self, recipeId: str) -> CustomizeRecipeResponse:
         try:
             recipe = self.db.query(Customize).filter(Customize.id == uuid.UUID(recipeId)).first()
+            res_dict = recipe.__dict__
+            res_dict["ingredients"] = eval(recipe.ingredients)
+            res_dict["steps"] = eval(recipe.steps)
         except:
             raise AppException.FooGetItem({"msg":"invalid customize recipe id form"})
-        return recipe
+        return res_dict
     
-    def get_customize_recipes(self):
-        recipes = self.user.recipes
-        return recipes
+    def get_customize_recipes(self) -> List[CustomizeRecipeResponse]:
+        try:
+            res=[]
+            recipes = self.user.recipes
+            for recipe in recipes:
+                res_dict = recipe.__dict__
+                res_dict["ingredients"] = eval(recipe.ingredients)
+                res_dict["steps"] = eval(recipe.steps)
+                res.append(res_dict)
+            return res
+        except:
+            raise AppException.FooGetItem({"msg":"Customize Recipe doesn't exist"})
 
     def create_customize(self, recipe: CustomizeCreate):
-        user:User = self.user
-        new_recipe = Customize(**recipe.dict())
-        user.recipes.append(new_recipe)
-        self.db.commit()
-        self.db.refresh(new_recipe)
-        return new_recipe
+        try:
+            user:User = self.user
+            new_recipe = Customize(
+                title = recipe.title,
+                sourceId = recipe.sourceId,
+                steps = str(jsonable_encoder(recipe.steps)),
+                tags = recipe.tags,
+                difficulty = recipe.difficulty,
+                category = recipe.category,
+                ingredients = str(jsonable_encoder(recipe.ingredients))
+            )
+            user.recipes.append(new_recipe)
+            self.db.commit()
+            self.db.refresh(new_recipe)
+            return new_recipe
+        except:
+            raise AppException.FooCreateItem({"msg":"recipe create failed"})
 
     def update_customize(self, new_recipe: CustomizeUpdate, recipeId: str):
         try:
@@ -141,7 +169,7 @@ class CustomizeCRUD(AppCRUD):
     
     def get_ingredient_by_subscription(self,sourceId):
         youtube = YoutubeAPI()
-        recipe_data,tags,channel_id,descriptioin = youtube.getVideoInfoById(sourceId)
+        recipe_data,tags,channel_id,descriptioin,run_time = youtube.getVideoInfoById(sourceId)
         res = str(descriptioin).split("\n")
         ingredients=[]
         stack=[]
@@ -298,6 +326,7 @@ class CustomizeCRUD(AppCRUD):
             }
     def create_default_background(self,sourceId:str):
         try:
+            self.rd.setex(sourceId,300,str(datetime.now()))
             if self.sub_exist(sourceId):
                 print("yt sub")
                 script = self.get_trans_by_youtube(sourceId)
@@ -319,14 +348,20 @@ class CustomizeCRUD(AppCRUD):
     def create_default(self,url:str,backgroudtasks:BackgroundTasks):
         try:
             sourceId = self.check_valid_url(url)
-            defaultRecipe = self.find_exist_default(sourceId)
-            if defaultRecipe:
-                return {
-                    "ingredient":defaultRecipe["ingredient"],
-                    "steps":defaultRecipe["steps"]
-                }
-            
-            backgroudtasks.add_task(self.create_default_background,sourceId)
+            print(sourceId)
+            youtube = YoutubeAPI()
+            youtube.getVideoInfoById(sourceId)
+            # defaultRecipe = self.find_exist_default(sourceId)
+            # if defaultRecipe:
+            #     return {
+            #         "ingredient":defaultRecipe["ingredient"],
+            #         "steps":defaultRecipe["steps"]
+            #     }
+            # if self.rd.get(sourceId):
+            #     return {
+            #         "msg":"This video is now processing"
+            #     }
+            # backgroudtasks.add_task(self.create_default_background,sourceId)
             return {
                 "msg":"process started"
             }

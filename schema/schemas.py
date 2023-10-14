@@ -209,16 +209,20 @@ class token(BaseModel):
     token_type:str
     token:str
 
+class customizeSteps(BaseModel):
+    step: str
+    timestamp: str
+
 class CustomizeBase(BaseModel):
     title: str
-    steps: str
+    steps: List[customizeSteps]
+    ingredients: List[IngredientCreate]
     tags: str
     difficulty: str
     category: str
 
 class CustomizeCreate(CustomizeBase):
     sourceId: str
-    ingredients: List[IngredientCreate]
 
 class CustomizeUpdate(CustomizeBase):
     pass
@@ -226,6 +230,10 @@ class CustomizeUpdate(CustomizeBase):
 class CustomizeRecipe(CustomizeBase):
     userId: UUID
     sourceId: str
+
+class CustomizeRecipeResponse(CustomizeBase):
+    sourceId: str
+    id: UUID
 
 class DefaultRecipeBase(BaseModel):
     steps: str
