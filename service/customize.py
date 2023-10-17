@@ -349,19 +349,19 @@ class CustomizeCRUD(AppCRUD):
         try:
             sourceId = self.check_valid_url(url)
             print(sourceId)
-            youtube = YoutubeAPI()
-            youtube.getVideoInfoById(sourceId)
-            # defaultRecipe = self.find_exist_default(sourceId)
-            # if defaultRecipe:
-            #     return {
-            #         "ingredient":defaultRecipe["ingredient"],
-            #         "steps":defaultRecipe["steps"]
-            #     }
-            # if self.rd.get(sourceId):
-            #     return {
-            #         "msg":"This video is now processing"
-            #     }
-            # backgroudtasks.add_task(self.create_default_background,sourceId)
+            # youtube = YoutubeAPI()
+            # youtube.getVideoInfoById(sourceId)
+            defaultRecipe = self.find_exist_default(sourceId)
+            if defaultRecipe:
+                return {
+                    "ingredient":defaultRecipe["ingredient"],
+                    "steps":defaultRecipe["steps"]
+                }
+            if self.rd.get(sourceId):
+                return {
+                    "msg":"This video is now processing"
+                }
+            backgroudtasks.add_task(self.create_default_background,sourceId)
             return {
                 "msg":"process started"
             }
