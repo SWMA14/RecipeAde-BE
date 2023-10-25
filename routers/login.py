@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Header, Request, Form
 from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated, Union
-from config.database import get_db,get_test_db
+from config.database import get_db
 from service.user import UserSerivce
 from schema.schemas import UserSignin,UserBase,token,UserSignUp
 from utils.service_result import handle_result
