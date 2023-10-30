@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Header, Request, Form
 from fastapi.security import OAuth2PasswordBearer
 from typing import Annotated, Union
-from config.database import get_db
+from config.database import get_db,get_test_db
 from service.user import UserSerivce
 from schema.schemas import UserSignin,UserBase,token,UserSignUp
 from utils.service_result import handle_result
@@ -14,7 +14,7 @@ router = APIRouter(
     tags=["login"],
     responses={404: {"description": "Not found"}},
 )
-db_sys = get_db
+db_sys = get_test_db
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="tokenUrl", auto_error=False)
 
 @router.post('/oauth/google')
