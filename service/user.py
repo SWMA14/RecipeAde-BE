@@ -19,9 +19,11 @@ class UserSerivce(AppService):
         if not token.token_type == "id_token":
             return ServiceResult(AppException.FooInvalidToken({"msg":"not id_token"}))
         jwt = UserCRUD(self.db).oauth_login(token.token,platform)
+        self.db.commit()
         return ServiceResult(jwt)
     def create_user_email(self, user: UserSignin):
         jwt = UserCRUD(self.db).create_user(user)
+        self.db.commit()
         return ServiceResult(jwt)
     def user_login_email(self, user: UserBase):
         jwt = UserCRUD(self.db).user_login(user)
@@ -65,7 +67,6 @@ class UserCRUD(AppCRUD):
         )
         access_token,refresh_token = Token.create_token(user.email)
         self.db.add(new_user)
-        self.db.commit()
         return {
             "access_token":access_token,
             "refresh_token":refresh_token
@@ -90,7 +91,10 @@ class UserCRUD(AppCRUD):
     def get_current_user(self,jwt:str):
         email = Token.jwt_decode(jwt,"access_token")
         user = self.db.query(User).filter(User.email == email).first()
-        return user
+        if user:
+            return user
+        else:
+            raise AppException.FooGetItem({"msg":"get user failed"})
     
     def get_all_users(self):
         return self.db.query(User).filter().all()

@@ -10,7 +10,7 @@ from schema.schemas import (
 from typing import List
 from .main import AppCRUD, AppService
 from utils.service_result import ServiceResult
-from utils.app_exceptions import AppException
+from utils.app_exceptions import AppException, AppExceptionCase
 from service.user import UserCRUD
 from fastapi import Depends, BackgroundTasks
 from sqlalchemy import or_,desc
@@ -27,6 +27,7 @@ import os
 from service.token import redis_config
 from datetime import datetime
 from fastapi.encoders import jsonable_encoder
+import boto3
 
 class CustomizeService(AppService):
     def __init__(self, db: Session, token:str):
@@ -49,14 +50,27 @@ class CustomizeService(AppService):
         new_recipe = CustomizeCRUD(self.db, self.token).create_customize(recipe)
         if not new_recipe:
             return ServiceResult(AppException.FooGetItem({"msg":"create recipe failed"}))
+        self.db.commit()
+        self.db.refresh(new_recipe)
         return ServiceResult(new_recipe)
     
     def update_customize(self,new_recipe:CustomizeUpdate, recipeId:str):
         recipe = CustomizeCRUD(self.db, self.token).update_customize(new_recipe,recipeId)
-        return ServiceResult(recipe)
+        self.db.commit()
+        self.db.refresh(recipe)
+        res = recipe.__dict__
+        res["steps"] = eval(recipe.steps)
+        res["ingredients"] = eval(recipe.ingredients)
+        return ServiceResult(res)
     
     def delete_customize(self,recipeId:str):
         res = CustomizeCRUD(self.db,self.token).delete_customize(recipeId)
+        return ServiceResult(res)
+    
+    def create_default(self,videoLink:str, backgroundTasks: BackgroundTasks):
+        res = CustomizeCRUD(self.db,self.token).create_default(videoLink,backgroundTasks)
+        if isinstance(res,AppExceptionCase):
+            return ServiceResult(res)
         return ServiceResult(res)
 
 class CustomizeCRUD(AppCRUD):
@@ -65,62 +79,63 @@ class CustomizeCRUD(AppCRUD):
         self.rd = redis_config()
         self.token = token
         try:
-            self.user = UserCRUD(db).get_current_user(token)
-        except:
+            user = UserCRUD(db).get_current_user(token)
+            access_key = os.getenv("ACCESS_KEY")
+            access_secret = os.getenv("ACCESS_SECRET")
+            client = boto3.resource("dynamodb",
+                                    region_name = "ap-northeast-2",
+                                    aws_access_key_id=access_key,
+                                    aws_secret_access_key=access_secret)
+            table = client.Table("default-recipe-table")
+            if table:
+                self.table = table
+            else:
+                raise AppException.FooGetItem({"msg":"AWS connection failed"})
+            if user:
+                self.user = user
+            else:
+                raise AppException.FooGetItem({"msg":"Invalid user"})
+        except Exception as e:
             raise AppException.FooInvalidToken({"msg":"invalid token"})
         
     def get_customize(self, recipeId: str) -> CustomizeRecipeResponse:
         try:
-            recipe = self.db.query(Customize).filter(Customize.id == uuid.UUID(recipeId)).first()
+            recipe = self.db.query(Customize).filter(Customize.id == uuid.UUID(recipeId) and Customize.deleted == False).first()
             res_dict = recipe.__dict__
-            res_dict["ingredients"] = eval(recipe.ingredients)
-            res_dict["steps"] = eval(recipe.steps)
-        except:
+            ingredient = recipe.ingredients
+            step = recipe.steps
+            if ingredient and step:
+                res_dict["ingredients"] = eval(ingredient)
+                res_dict["steps"] = eval(step)
+                return res_dict
+            else:
+                return AppException.FooGetItem({"msg":"This recipe is now processing"})
+        except Exception as e:
             raise AppException.FooGetItem({"msg":"invalid customize recipe id form"})
-        return res_dict
     
-    def get_customize_recipes(self) -> List[CustomizeRecipeResponse]:
+    def get_customize_recipes(self)-> List[CustomizeRecipeResponse]:
         try:
             res=[]
             recipes = self.user.recipes
             for recipe in recipes:
-                res_dict = recipe.__dict__
-                res_dict["ingredients"] = eval(recipe.ingredients)
-                res_dict["steps"] = eval(recipe.steps)
-                res.append(res_dict)
+                if recipe.steps and recipe.ingredients and not recipe.deleted:
+                    res_dict = recipe.__dict__
+                    res_dict["ingredients"] = eval(recipe.ingredients)
+                    res_dict["steps"] = eval(recipe.steps)
+                    res.append(res_dict)
             return res
-        except:
-            raise AppException.FooGetItem({"msg":"Customize Recipe doesn't exist"})
+        except Exception as e:
+            raise AppException.FooGetItem({"msg":"Customize Recipe doesn't exist"+ str(e)})
 
-    def create_customize(self, recipe: CustomizeCreate):
-        try:
-            user:User = self.user
-            new_recipe = Customize(
-                title = recipe.title,
-                sourceId = recipe.sourceId,
-                steps = str(jsonable_encoder(recipe.steps)),
-                tags = recipe.tags,
-                difficulty = recipe.difficulty,
-                category = recipe.category,
-                ingredients = str(jsonable_encoder(recipe.ingredients))
-            )
-            user.recipes.append(new_recipe)
-            self.db.commit()
-            self.db.refresh(new_recipe)
-            return new_recipe
-        except:
-            raise AppException.FooCreateItem({"msg":"recipe create failed"})
-
-    def update_customize(self, new_recipe: CustomizeUpdate, recipeId: str):
+    def update_customize(self, new_recipe: CustomizeUpdate, recipeId: str) -> CustomizeRecipeResponse:
         try:
             recipe = self.db.query(Customize).filter(Customize.id == uuid.UUID(recipeId)).first()
             recipe.category = new_recipe.category
             recipe.difficulty = new_recipe.difficulty
             recipe.title = new_recipe.title
-            recipe.steps = new_recipe.steps
+            recipe.steps = str(jsonable_encoder(new_recipe.steps))
             recipe.tags = new_recipe.tags
-            self.db.commit()
-            self.db.refresh(recipe)
+            recipe.ingredients = str(jsonable_encoder(new_recipe.ingredients))
             return recipe
         except Exception as e:
             raise AppException.FooGetItem({"msg":"invalid recipe id"})
@@ -129,6 +144,7 @@ class CustomizeCRUD(AppCRUD):
         try:
             recipe = self.db.query(Customize).filter(Customize.id == uuid.UUID(recipeId)).first()
             recipe.deleted = True
+            self.db.commit()
             return {"msg":"recipe deleted!"}
         except:
             raise AppException.FooGetItem({"msg":"invalid recipe id"})
@@ -193,7 +209,6 @@ class CustomizeCRUD(AppCRUD):
                     flag=0
                 else:
                     continue
-        print(ingredients)
     
     def get_ingredient_by_script(self,script):
         try:
@@ -228,11 +243,7 @@ class CustomizeCRUD(AppCRUD):
                                             },
                                             "quantity": {
                                                 "type": "null",
-                                                "description": "The amount of the ingredient, e.g. 1, 200, 1/2. Initially set to null."
-                                            },
-                                            "unit": {
-                                                "type": "null",
-                                                "description": "The unit of the ingredient, e.g. tsp, tbsp, g, kg, 개, 마리. Initially set to null. This need to be Korean."
+                                                "description": "The amount of the ingredient, e.g. 1개, 200g, 1/2스푼. Initially set to null."
                                             }
                                         }
                                     }
@@ -248,9 +259,9 @@ class CustomizeCRUD(AppCRUD):
             arguments = res_json["choices"][0]["message"]["function_call"]["arguments"]
             dict = json.loads(arguments)
             list = dict["ingredients"]
-            ingredients = {}
+            ingredients = []
             for i in list:
-                ingredients[i["name"]] = str(i["quantity"]) + str(i["unit"])
+                ingredients.append({"name":i["name"], "quantity":str(i["quantity"])})
             return ingredients
         except Exception as e:
             print(e)
@@ -287,7 +298,7 @@ class CustomizeCRUD(AppCRUD):
                                                 "type": "string",
                                                 "description": "Summarized step for recipe video, Every steps should include the ingredient of recipe and the way to cook. The output should be korean and should not include the time of each step"
                                             },
-                                            "time": {
+                                            "timestamp": {
                                                 "type": "string",
                                                 "description": "The timestamp for each step and only get minute and second, e.g. 1:20, 98:30"
                                             }
@@ -314,19 +325,9 @@ class CustomizeCRUD(AppCRUD):
         if 'en' in transcript_list._manually_created_transcripts:
             trans = transcript_list.find_manually_created_transcript(['en'])
             return trans
-        
-    def find_exist_default(self,videoId):
-        default = self.db.query(DefaultRecipe).filter(DefaultRecipe.videoId == videoId).first()
-        if default:
-            ingredient_res = eval(default.ingredients)
-            steps_res = eval(default.steps)
-            return {
-                "ingredient":ingredient_res,
-                "steps":steps_res
-            }
+
     def create_default_background(self,sourceId:str):
         try:
-            self.rd.setex(sourceId,300,str(datetime.now()))
             if self.sub_exist(sourceId):
                 print("yt sub")
                 script = self.get_trans_by_youtube(sourceId)
@@ -335,36 +336,112 @@ class CustomizeCRUD(AppCRUD):
                 script = self.get_trans_by_whisper(sourceId)
             ingredients = self.get_ingredient_by_script(script)
             steps = self.get_steps_by_script(script)["steps"]
-            new_default_recipe = DefaultRecipe(
-                steps = str(steps),
-                ingredients = str(ingredients),
-                videoId = sourceId
+            table = self.table
+            table.update_item(
+                Key = {"video_id":sourceId},
+                UpdateExpression = "set #status = :s, #steps = :steps, #ingredients = :ingredients",
+                ExpressionAttributeValues={":s": "complete", ":steps":steps, ":ingredients":ingredients},
+                ReturnValues="UPDATED_NEW",
+                ExpressionAttributeNames={"#status":"status", "#steps":"steps", "#ingredients":"ingredients"}
             )
-            self.db.add(new_default_recipe)
+            recipes = self.db.query(Customize).filter(Customize.sourceId == sourceId).all()
+            for recipe in recipes:
+                recipe.ingredients = str(ingredients)
+                recipe.steps = str(steps)
             self.db.commit()
         except Exception as e:
             print(e)
 
-    def create_default(self,url:str,backgroudtasks:BackgroundTasks):
+    def create_default(self,url:str,backgroundtasks:BackgroundTasks) -> CustomizeRecipeResponse:
         try:
             sourceId = self.check_valid_url(url)
-            print(sourceId)
-            # youtube = YoutubeAPI()
-            # youtube.getVideoInfoById(sourceId)
-            defaultRecipe = self.find_exist_default(sourceId)
-            if defaultRecipe:
-                return {
-                    "ingredient":defaultRecipe["ingredient"],
-                    "steps":defaultRecipe["steps"]
-                }
-            if self.rd.get(sourceId):
-                return {
-                    "msg":"This video is now processing"
-                }
-            backgroudtasks.add_task(self.create_default_background,sourceId)
-            return {
-                "msg":"process started"
-            }
+            recipe_exist = self.db.query(Customize).filter(Customize.sourceId == sourceId, Customize.userId == self.user.id).first()
+            if recipe_exist:
+                return AppException.FooCreateItem({"msg":"Recipe with this videoId already exist"})
+            
+            table = self.table
+            res = table.get_item(
+                Key = {"video_id":sourceId}
+            )
+            steps = ""
+            ingredients = ""
+            cnt=0
+            if "Item" in res.keys():
+                item = res["Item"]
+                cnt = item["count"]
+                if item["status"] == "processing":
+                    pass
+                else:
+                    steps = item["steps"]
+                    ingredients = item["ingredients"]
+            else:
+                table.put_item(
+                Item = {
+                    "video_id":sourceId,
+                    "status":"processing",
+                    "count":0
+                })
+            
+            table = self.table
+            table.update_item(
+                Key = {"video_id":sourceId},
+                UpdateExpression = "set #count = :c",
+                ExpressionAttributeValues={":c": cnt+1},
+                ReturnValues="UPDATED_NEW",
+                ExpressionAttributeNames={"#count":"count"}
+            )
+
+            user = self.user
+            new_recipe = Customize(
+                title = "",
+                sourceId = sourceId,
+                steps = str(steps),
+                tags = "",
+                difficulty = "",
+                category = "",
+                ingredients = str(ingredients),
+                user = user
+            )
+            self.db.add(new_recipe)
+            self.db.commit()
+            self.db.refresh(new_recipe)
+            new_res = new_recipe.__dict__
+            if not steps or not ingredients:
+                backgroundtasks.add_task(self.create_default_background,sourceId)
+                new_res["steps"]=[]
+                new_res["ingredients"]=[]
+            else:
+                new_res["steps"]=steps
+                new_res["ingredients"]=ingredients
+            return new_res
         except Exception as e:
-            print(e)
-            raise AppException.FooCreateItem({"msg":"default recipe create failed"})
+            raise AppException.FooCreateItem({"msg":"default recipe create failed" + str(e)})
+    
+    # def use_dynamoDb(self, videoId, backgroungtasks:BackgroundTasks):
+    #     try:
+    #         table = self.table
+    #         res = table.get_item(
+    #             Key = {"video_id":videoId}
+    #         )
+    #         if "Item" in res.keys():
+    #             item = res["Item"]
+    #             if item["status"] == "processing":
+    #                 return {"msg":"This video is now processing"}
+    #             else:
+    #                 return {
+    #                     "steps":item["steps"],
+    #                     "ingredients":item["ingredients"]
+    #                 }
+    #         else:
+    #             table.put_item(
+    #                 Item = {
+    #                     "video_id":videoId,
+    #                     "status":"processing"
+    #                 }
+    #             )
+    #             backgroungtasks.add_task(self.create_default_background,videoId)
+    #             return {
+    #                 "msg":"process started"
+    #             }
+    #     except Exception as e:
+    #        print(str(e)+"error")
