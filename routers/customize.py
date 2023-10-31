@@ -76,11 +76,3 @@ async def create_customize(
 async def get_all_default_from_db():
     res = defaultRecipesService().getallRecipes()
     return handle_result(res)
-
-@router.get("/check_valid")
-async def test(
-    sourceLink: str,
-    db: db_sys = Depends()
-):
-    token=""
-    return CustomizeCRUD(db,token).check_valid_url(sourceLink)
