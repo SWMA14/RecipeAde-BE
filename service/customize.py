@@ -129,7 +129,7 @@ class CustomizeCRUD(AppCRUD):
 
     def update_customize(self, new_recipe: CustomizeUpdate, recipeId: str) -> CustomizeRecipeResponse:
         try:
-            recipe = self.db.query(Customize).filter(Customize.id == uuid.UUID(recipeId)).first()
+            recipe = self.db.query(Customize).filter(Customize.id == uuid.UUID(recipeId) and Customize.deleted == False).first()
             recipe.category = new_recipe.category
             recipe.difficulty = new_recipe.difficulty
             recipe.title = new_recipe.title
@@ -156,7 +156,12 @@ class CustomizeCRUD(AppCRUD):
             raise AppException.FooCreateItem({"msg":"invalid youtube link"})
         match = re.search(pattern1,sourceLink) or re.search(pattern2,sourceLink)
         sourceId = str(match.group(1))
-        return sourceId
+        req_url = f"https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v={sourceId}&format=json"
+        res = requests.get(req_url).content.decode('utf-8')
+        if res == "Bad Request":
+            raise AppException.FooCreateItem({"msg":"Video with this video not exist"})
+        res_dict = eval(res)
+        return sourceId, res_dict["title"]
         
     def get_trans_by_whisper(self,videoId:str):
         try:
@@ -344,7 +349,7 @@ class CustomizeCRUD(AppCRUD):
                 ReturnValues="UPDATED_NEW",
                 ExpressionAttributeNames={"#status":"status", "#steps":"steps", "#ingredients":"ingredients"}
             )
-            recipes = self.db.query(Customize).filter(Customize.sourceId == sourceId).all()
+            recipes = self.db.query(Customize).filter(Customize.sourceId == sourceId and Customize.deleted == False).all()
             for recipe in recipes:
                 recipe.ingredients = str(ingredients)
                 recipe.steps = str(steps)
@@ -354,8 +359,8 @@ class CustomizeCRUD(AppCRUD):
 
     def create_default(self,url:str,backgroundtasks:BackgroundTasks) -> CustomizeRecipeResponse:
         try:
-            sourceId = self.check_valid_url(url)
-            recipe_exist = self.db.query(Customize).filter(Customize.sourceId == sourceId, Customize.userId == self.user.id).first()
+            sourceId,videoTitle = self.check_valid_url(url)
+            recipe_exist = self.db.query(Customize).filter(Customize.sourceId == sourceId, Customize.userId == self.user.id, Customize.deleted == False).first()
             if recipe_exist:
                 return AppException.FooCreateItem({"msg":"Recipe with this videoId already exist"})
             
@@ -393,7 +398,7 @@ class CustomizeCRUD(AppCRUD):
 
             user = self.user
             new_recipe = Customize(
-                title = "",
+                title = videoTitle,
                 sourceId = sourceId,
                 steps = str(steps),
                 tags = "",
