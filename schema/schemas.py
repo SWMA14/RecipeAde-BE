@@ -245,3 +245,13 @@ class DefaultRecipe(DefaultRecipeBase):
     deleted: bool
     created_at: datetime = datetime.now()
     updated_at: datetime = datetime.now()
+
+class dynamoDbRecipe(BaseModel):
+    steps: List[customizeSteps]
+    ingredients: List[IngredientCreate]
+    count: int
+    video_id: str
+    status: str
+
+class dynamoResponse(BaseModel):
+    recipes: List[dynamoDbRecipe]

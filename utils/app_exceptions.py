@@ -65,3 +65,11 @@ class AppException(object):
             """
             status_code = 401
             AppExceptionCase.__init__(self, status_code, context)
+
+    class ConnectionFailed(AppExceptionCase):
+        def __init__(self, context: dict = None):
+            """
+            Unauthorized
+            """
+            status_code = 405
+            AppExceptionCase.__init__(self, status_code, context)

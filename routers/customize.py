@@ -6,13 +6,16 @@ from service.user import UserCRUD
 from schema.schemas import (
     CustomizeCreate,
     CustomizeUpdate,
-    CustomizeRecipeResponse
+    CustomizeRecipeResponse,
+    dynamoResponse,
+    dynamoDbRecipe
 )
 from schema.schemas import User
 from utils.service_result import handle_result
 from typing import List,Annotated
 from config.database import get_db,get_test_db
 from service.customize import CustomizeService, CustomizeCRUD
+from service.defaultRecipes import defaultRecipesService
 
 
 router = APIRouter(
@@ -68,3 +71,16 @@ async def create_customize(
 ):
     res = CustomizeService(db,token).create_default(sourceLink,backgroundTasks)
     return handle_result(res)
+
+@router.get("/getAllDefaults",response_model=List[dynamoDbRecipe])
+async def get_all_default_from_db():
+    res = defaultRecipesService().getallRecipes()
+    return handle_result(res)
+
+@router.get("/check_valid")
+async def test(
+    sourceLink: str,
+    db: db_sys = Depends()
+):
+    token=""
+    return CustomizeCRUD(db,token).check_valid_url(sourceLink)
