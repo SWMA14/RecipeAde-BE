@@ -29,6 +29,8 @@ from datetime import datetime
 from fastapi.encoders import jsonable_encoder
 import boto3
 
+OPENAI_KEY = os.getenv("OPENAI_KEY")
+
 class CustomizeService(AppService):
     def __init__(self, db: Session, token:str):
         super().__init__(db)
@@ -151,15 +153,16 @@ class CustomizeCRUD(AppCRUD):
         
     def check_valid_url(self, sourceLink:str):
         pattern1 = r"https\:\/\/www\.youtube\.com\/watch\?v=([\d\D]+)"
-        pattern2 = r"https\:\/\/youtu\.be\/(.+)\?[\d\D]+"
-        if not re.match(pattern1,sourceLink) and not re.match(pattern2,sourceLink):
+        pattern2 = r"https\:\/\/youtu\.be\/(.[^\?]+)(.+)?"
+        pattern3 = r"https\:\/\/www\.youtube\.com\/v\/([\d\D]+)\?[\d\D]+"
+        if not re.match(pattern1,sourceLink) and not re.match(pattern2,sourceLink) and not re.match(pattern3,sourceLink):
             raise AppException.FooCreateItem({"msg":"invalid youtube link"})
-        match = re.search(pattern1,sourceLink) or re.search(pattern2,sourceLink)
+        match = re.search(pattern1,sourceLink) or re.search(pattern2,sourceLink) or re.search(pattern3,sourceLink)
         sourceId = str(match.group(1))
         req_url = f"https://www.youtube.com/oembed?url=http://www.youtube.com/watch?v={sourceId}&format=json"
         res = requests.get(req_url).content.decode('utf-8')
         if res == "Bad Request":
-            raise AppException.FooCreateItem({"msg":"Video with this video not exist"})
+            raise AppException.FooCreateItem({"msg":"Video with this video_id not exist"})
         res_dict = eval(res)
         return sourceId, res_dict["title"]
         
@@ -168,7 +171,7 @@ class CustomizeCRUD(AppCRUD):
             yt = YouTube("https://www.youtube.com/watch?v="+videoId)
             filename = str(uuid.uuid4())+".mp4"
             yt.streams.filter(only_audio=True).first().download(output_path="./whisper",filename=filename)
-            api_key = "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"
+            api_key = OPENAI_KEY
             audio = open("./whisper/"+filename,"rb")
             openai.api_key = api_key
             trans = openai.Audio.transcribe("whisper-1",audio,response_format="text")
@@ -259,7 +262,7 @@ class CustomizeCRUD(AppCRUD):
                     }
                 ]
             }
-            res = requests.post("https://api.openai.com/v1/chat/completions",json=req_json,headers={"Authorization":"Bearer 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"})
+            res = requests.post("https://api.openai.com/v1/chat/completions",json=req_json,headers={"Authorization":"Bearer "+OPENAI_KEY})
             res_json = res.json()
             arguments = res_json["choices"][0]["message"]["function_call"]["arguments"]
             dict = json.loads(arguments)
@@ -316,7 +319,7 @@ class CustomizeCRUD(AppCRUD):
                     }
                 ]
             }
-            res = requests.post("https://api.openai.com/v1/chat/completions",json=req_json,headers={"Authorization":"Bearer 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"})
+            res = requests.post("https://api.openai.com/v1/chat/completions",json=req_json,headers={"Authorization":"Bearer "+OPENAI_KEY})
             res_json = res.json()
             arguments = res_json["choices"][0]["message"]["function_call"]["arguments"]
             dict = json.loads(arguments)
@@ -368,8 +371,8 @@ class CustomizeCRUD(AppCRUD):
             res = table.get_item(
                 Key = {"video_id":sourceId}
             )
-            steps = ""
-            ingredients = ""
+            steps = []
+            ingredients = []
             cnt=0
             if "Item" in res.keys():
                 item = res["Item"]
@@ -413,14 +416,13 @@ class CustomizeCRUD(AppCRUD):
             new_res = new_recipe.__dict__
             if not steps or not ingredients:
                 backgroundtasks.add_task(self.create_default_background,sourceId)
-                new_res["steps"]=[]
-                new_res["ingredients"]=[]
-            else:
-                new_res["steps"]=steps
-                new_res["ingredients"]=ingredients
+            new_res["steps"]=steps
+            new_res["ingredients"]=ingredients
             return new_res
-        except Exception as e:
-            raise AppException.FooCreateItem({"msg":"default recipe create failed" + str(e)})
+        except AppExceptionCase as e:
+            raise e
+        except:
+            raise AppException.FooCreateItem({"msg":"create default recipe failed"})
     
     # def use_dynamoDb(self, videoId, backgroungtasks:BackgroundTasks):
     #     try:
