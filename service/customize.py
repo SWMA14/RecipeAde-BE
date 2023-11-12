@@ -37,16 +37,20 @@ class CustomizeService(AppService):
         self.token = token
 
     def get_customize(self,recipeId: str):
-        recipe = CustomizeCRUD(self.db,self.token).get_customize(recipeId)
-        if not recipe:
-            return ServiceResult(AppException.FooGetItem({"msg":"customize recipe not exist"}))
-        return ServiceResult(recipe)
+        try:
+            recipe = CustomizeCRUD(self.db,self.token).get_customize(recipeId)
+            return ServiceResult(recipe)
+        except Exception as e:
+            return ServiceResult(e)
     
     def get_customize_recipes(self):
-        recipes = CustomizeCRUD(self.db,self.token).get_customize_recipes()
-        if not recipes:
-            return ServiceResult(AppException.FooGetItem({"msg":"customize recipes not exist"}))
-        return ServiceResult(recipes)
+        try:
+            recipes = CustomizeCRUD(self.db,self.token).get_customize_recipes()
+            if not recipes:
+                return ServiceResult(AppException.FooGetItem({"msg":"recipes not exist"}))
+            return ServiceResult(recipes)
+        except Exception as e:
+            return ServiceResult(e)
         
     def create_customize(self,recipe:CustomizeCreate):
         new_recipe = CustomizeCRUD(self.db, self.token).create_customize(recipe)
@@ -57,23 +61,30 @@ class CustomizeService(AppService):
         return ServiceResult(new_recipe)
     
     def update_customize(self,new_recipe:CustomizeUpdate, recipeId:str):
-        recipe = CustomizeCRUD(self.db, self.token).update_customize(new_recipe,recipeId)
-        self.db.commit()
-        self.db.refresh(recipe)
-        res = recipe.__dict__
-        res["steps"] = eval(recipe.steps)
-        res["ingredients"] = eval(recipe.ingredients)
-        return ServiceResult(res)
+        try:
+            recipe = CustomizeCRUD(self.db, self.token).update_customize(new_recipe,recipeId)
+            self.db.commit()
+            self.db.refresh(recipe)
+            res = recipe.__dict__
+            res["steps"] = eval(recipe.steps)
+            res["ingredients"] = eval(recipe.ingredients)
+            return ServiceResult(res)
+        except Exception as e:
+            return ServiceResult(e)
     
     def delete_customize(self,recipeId:str):
-        res = CustomizeCRUD(self.db,self.token).delete_customize(recipeId)
-        return ServiceResult(res)
+        try:
+            res = CustomizeCRUD(self.db,self.token).delete_customize(recipeId)
+            return ServiceResult(res)
+        except Exception as e:
+            return ServiceResult(e)
     
     def create_default(self,videoLink:str, backgroundTasks: BackgroundTasks):
-        res = CustomizeCRUD(self.db,self.token).create_default(videoLink,backgroundTasks)
-        if isinstance(res,AppExceptionCase):
+        try:
+            res = CustomizeCRUD(self.db,self.token).create_default(videoLink,backgroundTasks)
             return ServiceResult(res)
-        return ServiceResult(res)
+        except Exception as e:
+            return ServiceResult(e)
 
 class CustomizeCRUD(AppCRUD):
     def __init__(self, db: Session, token: str):
@@ -111,9 +122,9 @@ class CustomizeCRUD(AppCRUD):
                 res_dict["steps"] = eval(step)
                 return res_dict
             else:
-                return AppException.FooGetItem({"msg":"This recipe is now processing"})
+                raise AppException.FooGetItem({"msg":"This recipe is now processing"})
         except Exception as e:
-            raise AppException.FooGetItem({"msg":"invalid customize recipe id form"})
+            raise AppException.FooGetItem({"msg":"invalid customize recipe id"})
     
     def get_customize_recipes(self)-> List[CustomizeRecipeResponse]:
         try:
@@ -127,7 +138,7 @@ class CustomizeCRUD(AppCRUD):
                     res.append(res_dict)
             return res
         except Exception as e:
-            raise AppException.FooGetItem({"msg":"Customize Recipe doesn't exist"+ str(e)})
+            raise AppException.FooGetItem({"msg":"get customize recipes failed"+ str(e)})
 
     def update_customize(self, new_recipe: CustomizeUpdate, recipeId: str) -> CustomizeRecipeResponse:
         try:
@@ -164,6 +175,8 @@ class CustomizeCRUD(AppCRUD):
         if res == "Bad Request":
             raise AppException.FooCreateItem({"msg":"Video with this video_id not exist"})
         res_dict = eval(res)
+        res = requests.get(sourceLink).content
+        print(len(res))
         return sourceId, res_dict["title"]
         
     def get_trans_by_whisper(self,videoId:str):
@@ -272,7 +285,6 @@ class CustomizeCRUD(AppCRUD):
                 ingredients.append({"name":i["name"], "quantity":str(i["quantity"])})
             return ingredients
         except Exception as e:
-            print(e)
             raise AppException.FooCreateItem({"msg":"get ingredient failed"})
     
     def get_steps_by_script(self,script):
@@ -423,32 +435,3 @@ class CustomizeCRUD(AppCRUD):
             raise e
         except:
             raise AppException.FooCreateItem({"msg":"create default recipe failed"})
-    
-    # def use_dynamoDb(self, videoId, backgroungtasks:BackgroundTasks):
-    #     try:
-    #         table = self.table
-    #         res = table.get_item(
-    #             Key = {"video_id":videoId}
-    #         )
-    #         if "Item" in res.keys():
-    #             item = res["Item"]
-    #             if item["status"] == "processing":
-    #                 return {"msg":"This video is now processing"}
-    #             else:
-    #                 return {
-    #                     "steps":item["steps"],
-    #                     "ingredients":item["ingredients"]
-    #                 }
-    #         else:
-    #             table.put_item(
-    #                 Item = {
-    #                     "video_id":videoId,
-    #                     "status":"processing"
-    #                 }
-    #             )
-    #             backgroungtasks.add_task(self.create_default_background,videoId)
-    #             return {
-    #                 "msg":"process started"
-    #             }
-    #     except Exception as e:
-    #        print(str(e)+"error")
