@@ -159,6 +159,7 @@ class Customize(Base):
     difficulty = Column(String(10))
     category = Column(String(20))
     ingredients = Column(Text)
+    language = Column(String(10))
 
     userId = Column(Uuid(as_uuid=True),ForeignKey("users.id"))
 
