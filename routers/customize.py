@@ -16,7 +16,10 @@ from typing import List,Annotated
 from config.database import get_db,get_test_db
 from service.customize import CustomizeService, CustomizeCRUD
 from service.defaultRecipes import defaultRecipesService
-
+from utils.Enums import Lang
+from loguru import logger
+from service.youtubeAPI import YoutubeAPI
+from pytube import YouTube
 
 router = APIRouter(
     prefix="/customize",
@@ -65,14 +68,17 @@ async def delete_customize(
 @router.post("/create_default", response_model=CustomizeRecipeResponse)
 async def create_customize(
     sourceLink: str,
+    lang: str,
     backgroundTasks: BackgroundTasks,
     token: str = Depends(oauth2_scheme),
     db: db_sys = Depends()
 ):
-    res = CustomizeService(db,token).create_default(sourceLink,backgroundTasks)
+    res = CustomizeService(db,token).create_default(sourceLink,backgroundTasks, lang)
     return handle_result(res)
 
 @router.get("/getAllDefaults",response_model=List[dynamoDbRecipe])
-async def get_all_default_from_db():
-    res = defaultRecipesService().getallRecipes()
+async def get_all_default_from_db(
+    lang: str
+):
+    res = defaultRecipesService().getallRecipes(lang)
     return handle_result(res)

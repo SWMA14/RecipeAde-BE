@@ -28,6 +28,8 @@ from service.token import redis_config
 from datetime import datetime
 from fastapi.encoders import jsonable_encoder
 import boto3
+from utils.Enums import Lang,Platform
+from boto3.dynamodb.conditions import Attr
 
 OPENAI_KEY = os.getenv("OPENAI_KEY")
 
@@ -79,9 +81,9 @@ class CustomizeService(AppService):
         except Exception as e:
             return ServiceResult(e)
     
-    def create_default(self,videoLink:str, backgroundTasks: BackgroundTasks):
+    def create_default(self,videoLink:str, backgroundTasks: BackgroundTasks, lang:str):
         try:
-            res = CustomizeCRUD(self.db,self.token).create_default(videoLink,backgroundTasks)
+            res = CustomizeCRUD(self.db,self.token).create_default(videoLink,backgroundTasks,lang)
             return ServiceResult(res)
         except Exception as e:
             return ServiceResult(e)
@@ -99,7 +101,7 @@ class CustomizeCRUD(AppCRUD):
                                     region_name = "ap-northeast-2",
                                     aws_access_key_id=access_key,
                                     aws_secret_access_key=access_secret)
-            table = client.Table("default-recipe-table")
+            table = client.Table("recipeade-test")
             if table:
                 self.table = table
             else:
@@ -175,9 +177,13 @@ class CustomizeCRUD(AppCRUD):
         if res == "Bad Request":
             raise AppException.FooCreateItem({"msg":"Video with this video_id not exist"})
         res_dict = eval(res)
-        res = requests.get(sourceLink).content
-        print(len(res))
         return sourceId, res_dict["title"]
+    
+    def get_desc_from_youtube(self,videoId:str):
+        yt = YouTube(f"https://www.youtube.com/watch?v={videoId}")
+        stream = yt.streams.first()
+        description = yt.description
+        return description
         
     def get_trans_by_whisper(self,videoId:str):
         try:
@@ -231,111 +237,144 @@ class CustomizeCRUD(AppCRUD):
                 else:
                     continue
     
-    def get_ingredient_by_script(self,script):
+    def get_ingredient_by_script(self,script,title, description, recipe, lang):
         try:
-            req_json = {
-                "model": "gpt-4-0613",
+            prompt = '''You are an recipe ingredients extractor. You will be given recipe steps, transcript, description and title of a YouTube recipe video which is the origin of the recipe, each delimited in XML tags. Your task is to extract complete list of all the used ingredients and their exact amount.
+            <recipe>
+            {recipe}
+            </recipe>
+            <title>
+            {title}
+            </title>
+            <description>
+            {description}
+            </description>
+            <transcript>
+            {script}
+            </transcript>
+            ### Guidelines:
+            - Capture every ingredients and their amount. Amount can be mentioned directly in numbers, or expressed in verbal ways.
+            - In the final list, every ingredient need to present only once.
+            - Consider yourself as a viewer that is following the recipe, and think of what ingredients are crucial to your cooking process.
+            - Description may have exact amount of ingredients. If so, actively reference them to minimize the error.
+            ### Instructions:
+            - Take a deep breath and work on the problem step-by-step, by following these steps:
+            1. Repeat this task 5 times: Look into every information you are given and identify 1-3 ingredients you haven't found and extracted yet.
+            - Must extract ingredients that are essential in the recipe. Think about how much impact could be on the recipe result if a specific ingredient is added or skipped.
+            2. Try to find amounts of ingredients you identified. Be aware that some ingredients do not have mention of amount.
+            3. Organize all of your works into a list.
+            Answer in JSON, following this schema:
+            [
+            {{
+                "name": string; // write in {lang}
+                "amount": string | ""; // write in {lang}, and if there's no mention of amount, just write "".
+            }},
+            {{
+                ...
+            }},
+            ...
+            ]'''.replace("{lang}", "Korean" if lang == "ko" else "English") \
+                .replace("{description}", description) \
+                .replace("{title}", title) \
+                .replace("{script}", script) \
+                .replace("{recipe}", str(recipe))
+
+            data = {
+                "model": "gpt-4-1106-preview",
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are an ingredient extractor for a recipe video. User will give you description and transcript of it, and you must extract all ingredients from them. You must try your very best to find exact amount of ingredients. Be sure to must capture the unit of them too which often appears right after the ingredient name. Your output need to be Korean."
-                    },
-                    {
-                        "role": "user",
-                        "content": "Descriptoin: (설명)\n\nTranscript: "+script
-                    }
-                ],
-                "functions": [
-                    {
-                        "name": "get_ingredients",
-                        "description": "Get ingredients from the given description and transcript of the recipe video in Korean form",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "ingredients": {
-                                    "type": "array",
-                                    "description": "An array of Korean strings containing the all ingredients in the recipe video with exact amount, e.g. ['깻잎 4장', '새우 3마리', '간장 1TSP', '설탕 300g', '당근 반 개']",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "name": {
-                                                "type": "string",
-                                                "description": "The name of the ingredient, e.g. '깻잎', '새우', '간장', '설탕', '당근'. Quantity or unit should never be contained in the name. This need to be Korean."
-                                            },
-                                            "quantity": {
-                                                "type": "null",
-                                                "description": "The amount of the ingredient, e.g. 1개, 200g, 1/2스푼. Initially set to null."
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            "required": ["ingredients"]
-                        }
+                        "content": prompt
                     }
                 ]
             }
-            res = requests.post("https://api.openai.com/v1/chat/completions",json=req_json,headers={"Authorization":"Bearer "+OPENAI_KEY})
-            res_json = res.json()
-            arguments = res_json["choices"][0]["message"]["function_call"]["arguments"]
-            dict = json.loads(arguments)
-            list = dict["ingredients"]
+            response = requests.post("https://api.openai.com/v1/chat/completions", json=data, headers={"Authorization": f"Bearer {OPENAI_KEY}"}).json()
+            content = re.search(r"\[.+\]", response["choices"][0]["message"]["content"], flags=re.S).group()
+            entries = json.loads(content)
             ingredients = []
-            for i in list:
-                ingredients.append({"name":i["name"], "quantity":str(i["quantity"])})
+
+            for entry in entries:
+                ingredients.append({
+                    "name": entry["name"],
+                    "quantity": entry["amount"]
+                })
+
             return ingredients
+        
         except Exception as e:
-            raise AppException.FooCreateItem({"msg":"get ingredient failed"})
+            print(e)
+            raise AppException.FooCreateItem({"msg":"get ingredient failed"+str(e)})
     
-    def get_steps_by_script(self,script):
+    def get_steps_by_script(self,script,title,description,lang):
         try:
-            req_json = {
-                "model": "gpt-4-0613",
+            examples = ["  - 팬에 식용유 2스푼을 두르고 썰어둔 다진 마늘과 다진 양파를 볶습니다.", "  - 양념에 소고기를 잘 버무려 두 시간 정도 재워줍니다.", "  - 올리고당이 없다면 물엿 3스푼으로 대체해도 괜찮습니다."] if lang == "ko" else ["  - Cook until vegetables are softened.", "  - Roast the vegetables in the preheated oven for 20-25 minutes.", "  - Stuff each bell pepper half with the quinoa mixture, pressing down gently."]
+            prompt = '''You are a transcript-to-recipe converter. You will be given transcript, description and title of a YouTube recipe video, each delimited in XML tags. Your task is to convert given information into easy-to-follow and seamless recipe, while capturing all the cooking-crucial information.
+            <title>
+            {title}
+            </title>
+            <description>
+            {description}
+            </description>
+            <transcript>
+            {script}
+            </transcript>
+            ### Considerations:
+            - Analyse all the recipe books, cuisine magazines or articles you have, and try to imitate the tones from them. Examples:
+            {examples}
+            - There are no limits in count of steps, but try to avoid making steps unnecessarilly too much.
+            - Title may have correct form of the ingredients or useful information. If so, actively reference them to minimize the error.
+            ### Guidelines:
+            - Exclude unnecessary lines completely from your task, e.g., video introduction, final words, chatters.
+            - Reflect about your descriptions and find mistakes you made, e.g., incorrect grammar, false information. Improve the description by rectifying identified mistakes.
+            - Consider yourself as a master of cooking, and think of what will help the viewers to successfully complete the dish.
+            ### Instructions:
+            - Take a deep breath and work on the problem step-by-step, by following these instructions:
+            1. Chronologically retrieve the whole transcript and cluster into recipe steps by grouping similar and close-located lines.
+            - Each line of transcript is constructed in this way: `({{start timestamp of this line}}) {{transcribed text}}`.
+            2. Write a new instructing, easy-to-follow description for each clustered step with 1-2 sentences.
+            - Never miss critical information that can affect the result, e.g., the speaker's tip.
+            - Description may have exact amount of ingredients or full list of recipe steps. If so, actively reference them to minimize the error.
+            - Find the start timestamp of each step in the transcript. Timestamps must be in the transcript.
+            - BAN: NEVER ADD CONTENTS THAT DO NOT PRESENT IN THE GIVEN INFORMATION, even when they are helpful. This action would only add more confusion to the user, which is severely againsts 'easy-to-follow and seamingless' duty of you.
+            Answer in JSON, following this schema:
+            [
+            {{
+                "startTimestamp": string; // need to be only one timestamp
+                "description": string; // write in {lang}
+                "flaws": string; // always write in English
+                "improvedDescription": string; // write in {lang}
+            }},
+            {{
+                ...
+            }},
+            ...
+            ]'''.replace("{lang}", "Korean" if lang == "ko" else "English") \
+                .replace("{examples}", "\n".join(examples)) \
+                .replace("{description}", description) \
+                .replace("{title}", title) \
+                .replace("{script}", script)
+
+            data = {
+                "model": "gpt-4-1106-preview",
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are an video summarize service for a recipe video. User will give you transcript and start time of each text, and you must summarize the video. You must try get result each timestamp and step. Your output need to be Korean."
-                    },
-                    {
-                        "role": "user",
-                        "content": script
-                    }
-                ],
-                "functions": [
-                    {
-                        "name": "summarize",
-                        "description": "summarize the content of the recipe video with step and timestamp in Korean form",
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "steps": {
-                                    "type": "array",
-                                    "description": "An array of Korean strings containing the all steps in the recipe video with exact amount, e.g. ['깻잎 4장', '새우 3마리', '간장 1TSP', '설탕 300g', '당근 반 개']",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "step": {
-                                                "type": "string",
-                                                "description": "Summarized step for recipe video, Every steps should include the ingredient of recipe and the way to cook. The output should be korean and should not include the time of each step"
-                                            },
-                                            "timestamp": {
-                                                "type": "string",
-                                                "description": "The timestamp for each step and only get minute and second, e.g. 1:20, 98:30"
-                                            }
-                                        }
-                                    }
-                                }
-                            },
-                            "required": ["stpes"]
-                        }
+                        "content": prompt
                     }
                 ]
             }
-            res = requests.post("https://api.openai.com/v1/chat/completions",json=req_json,headers={"Authorization":"Bearer "+OPENAI_KEY})
-            res_json = res.json()
-            arguments = res_json["choices"][0]["message"]["function_call"]["arguments"]
-            dict = json.loads(arguments)
-            return dict
+            response = requests.post("https://api.openai.com/v1/chat/completions", json=data, headers={"Authorization": f"Bearer {OPENAI_KEY}"}).json()
+            content = re.search(r"\[.+\]", response["choices"][0]["message"]["content"], flags=re.S).group()
+            entries = json.loads(content)
+            steps = []
+            
+            for entry in entries:
+                steps.append({
+                    "step": entry["improvedDescription"],
+                    "timestamp": entry["startTimestamp"]
+                })
+
+            return steps
         except Exception as e:
             print(e)
             raise AppException.FooCreateItem({"msg":"get steps failed"})
@@ -346,25 +385,27 @@ class CustomizeCRUD(AppCRUD):
             trans = transcript_list.find_manually_created_transcript(['en'])
             return trans
 
-    def create_default_background(self,sourceId:str):
+    def create_default_background(self,sourceId:str,title:str, lang:str):
         try:
+            print(lang)
             if self.sub_exist(sourceId):
                 print("yt sub")
                 script = self.get_trans_by_youtube(sourceId)
             else:
                 print("whisper sub")
                 script = self.get_trans_by_whisper(sourceId)
-            ingredients = self.get_ingredient_by_script(script)
-            steps = self.get_steps_by_script(script)["steps"]
+            desc = self.get_desc_from_youtube(sourceId)
+            steps = self.get_steps_by_script(script,title,desc, lang)
+            ingredients = self.get_ingredient_by_script(script, title, desc, steps, lang)
             table = self.table
             table.update_item(
-                Key = {"video_id":sourceId},
+                Key = {"video_id":sourceId, "lang":lang},
                 UpdateExpression = "set #status = :s, #steps = :steps, #ingredients = :ingredients",
                 ExpressionAttributeValues={":s": "complete", ":steps":steps, ":ingredients":ingredients},
                 ReturnValues="UPDATED_NEW",
                 ExpressionAttributeNames={"#status":"status", "#steps":"steps", "#ingredients":"ingredients"}
             )
-            recipes = self.db.query(Customize).filter(Customize.sourceId == sourceId and Customize.deleted == False).all()
+            recipes = self.db.query(Customize).filter(Customize.sourceId == sourceId and Customize.deleted == False and Customize.language == lang).all()
             for recipe in recipes:
                 recipe.ingredients = str(ingredients)
                 recipe.steps = str(steps)
@@ -372,16 +413,18 @@ class CustomizeCRUD(AppCRUD):
         except Exception as e:
             print(e)
 
-    def create_default(self,url:str,backgroundtasks:BackgroundTasks) -> CustomizeRecipeResponse:
+    def create_default(self,url:str,backgroundtasks:BackgroundTasks, lang: str) -> CustomizeRecipeResponse:
         try:
+            if lang not in ("ko","en"):
+                raise AppException.FooCreateItem({"msg":"lang parameter must be 'ko' or 'en'"})
             sourceId,videoTitle = self.check_valid_url(url)
-            recipe_exist = self.db.query(Customize).filter(Customize.sourceId == sourceId, Customize.userId == self.user.id, Customize.deleted == False).first()
+            recipe_exist = self.db.query(Customize).filter(Customize.sourceId == sourceId, Customize.userId == self.user.id, Customize.deleted == False, Customize.language == lang).first()
             if recipe_exist:
                 return AppException.FooCreateItem({"msg":"Recipe with this videoId already exist"})
             
             table = self.table
             res = table.get_item(
-                Key = {"video_id":sourceId}
+                Key={"video_id":sourceId, "lang":lang}
             )
             steps = []
             ingredients = []
@@ -399,12 +442,13 @@ class CustomizeCRUD(AppCRUD):
                 Item = {
                     "video_id":sourceId,
                     "status":"processing",
-                    "count":0
+                    "count":0,
+                    "lang":lang
                 })
             
             table = self.table
             table.update_item(
-                Key = {"video_id":sourceId},
+                Key = {"video_id":sourceId, "lang":lang},
                 UpdateExpression = "set #count = :c",
                 ExpressionAttributeValues={":c": cnt+1},
                 ReturnValues="UPDATED_NEW",
@@ -420,6 +464,7 @@ class CustomizeCRUD(AppCRUD):
                 difficulty = "",
                 category = "",
                 ingredients = str(ingredients),
+                language = lang,
                 user = user
             )
             self.db.add(new_recipe)
@@ -427,11 +472,11 @@ class CustomizeCRUD(AppCRUD):
             self.db.refresh(new_recipe)
             new_res = new_recipe.__dict__
             if not steps or not ingredients:
-                backgroundtasks.add_task(self.create_default_background,sourceId)
+                backgroundtasks.add_task(self.create_default_background,sourceId,videoTitle, lang)
             new_res["steps"]=steps
             new_res["ingredients"]=ingredients
             return new_res
         except AppExceptionCase as e:
             raise e
-        except:
-            raise AppException.FooCreateItem({"msg":"create default recipe failed"})
+        except Exception as e:
+            raise AppException.FooCreateItem({"msg":"create default recipe failed"+str(e)})

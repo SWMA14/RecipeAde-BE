@@ -15,14 +15,16 @@ class defaultRecipesService():
                                     region_name = "ap-northeast-2",
                                     aws_access_key_id=access_key,
                                     aws_secret_access_key=access_secret)
-            table = client.Table("default-recipe-table")
+            table = client.Table("recipeade-test")
             self.table = table
         except:
             raise AppException.ConnectionFailed({"msg":"aws connection failed"})
-    def getallRecipes(self):
+    def getallRecipes(self, lang:str):
         try:
+            if not lang in ("ko","en"):
+                return  ServiceResult(AppException.FooGetItem({"msg":"lang parameter must be 'ko' or 'en'"}))
             res = self.table.scan(
-                FilterExpression = Attr("status").eq("complete")
+                FilterExpression = Attr("status").eq("complete") & Attr("lang").eq(lang)
             )
             items = res["Items"]
             return ServiceResult(items)
