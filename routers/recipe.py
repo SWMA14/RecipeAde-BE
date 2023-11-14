@@ -89,7 +89,7 @@ async def get_item(item_id: int, db: get_db = Depends()):
     return handle_result(result)
 
 
-@router.get("", response_model=List[RecipeResponse])
+@router.get("")
 async def get_items(db: get_db = Depends()):
     result = RecipeService(db).get_recipes()
     return handle_result(result)

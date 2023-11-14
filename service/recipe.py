@@ -151,7 +151,7 @@ class RecipeCRUD(AppCRUD):
             return recipe
         return None
 
-    def get_recipes(self) -> List[RecipeResponse]:
+    def get_recipes(self):
         recipe = self.db.query(Recipe).filter(Recipe.deleted == False).all()
         if recipe:
             return recipe
