@@ -15,7 +15,7 @@ class SearchService(AppService):
         return ServiceResult(recipes)
 
 class SearchCRUD(AppCRUD):
-    def search_recipe(self,keyword,category, diff, sort) -> List[RecipeResponse]:
+    def search_recipe(self,keyword,category, diff, sort):
         query = self.db.query(Recipe)
         searchtitle = "%{}%".format(keyword)
         searchChannel = "%{}%".format(keyword)

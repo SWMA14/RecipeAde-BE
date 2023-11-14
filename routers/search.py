@@ -9,7 +9,7 @@ router = APIRouter(
     prefix="/search",
     tags=['search']
 )
-@router.get("/{keyword}",response_model=List[RecipeResponse])
+@router.get("/{keyword}")
 async def searchTest(
     keyword: str,
     category: str | None = None,
