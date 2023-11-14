@@ -20,6 +20,8 @@ from utils.Enums import Lang
 from loguru import logger
 from service.youtubeAPI import YoutubeAPI
 from pytube import YouTube
+from pydantic import BaseModel
+from service.youtubeAPI import get_video_info
 
 router = APIRouter(
     prefix="/customize",
@@ -82,3 +84,9 @@ async def get_all_default_from_db(
 ):
     res = defaultRecipesService().getallRecipes(lang)
     return handle_result(res)
+
+@router.get("/get_youtube_info")
+async def get_youtube_info(
+    url:str
+):
+    return get_video_info(url)
