@@ -200,11 +200,13 @@ class CustomizeCRUD(AppCRUD):
             raise AppException.FooCreateItem({"msg":"get whisper failed"})
 
     def get_trans_by_youtube(self,videoId):
+        def second_to_minute(seconds: int):
+            return f"{seconds // 60}:{str(seconds % 60).zfill(2)}"
         try:
             srt = YouTubeTranscriptApi.get_transcript(videoId,languages=['en'])
             input_text=""
             for i in srt:
-                time_step = f'({i["start"]}) {i["text"]}, '
+                time_step = f'({second_to_minute(int(i["start"]))}) {i["text"]}, '
                 input_text+=time_step
             return input_text
         except:
