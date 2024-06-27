@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends
 
-from service.recipe import RecipeService, RecipeCRUD
+from service.recipe import RecipeService
 from service.recommend import RecommendService
+from service.search import SearchService
 from schema.schemas import (
     Recipe,
     RecipeCreate,
@@ -9,16 +10,13 @@ from schema.schemas import (
     RecipeStepCreate,
     Channel,
     ChannelCreate,
-    RecipeResponse,
-    TagCreate,
-    RecipeResponseDetail
 )
 
 from utils.service_result import handle_result
-from typing import List,Annotated
+from typing import List
 from config.database import get_db
 
-from pydantic import BaseModel
+from service.youtubeAPI import YoutubeAPI
 
 
 router = APIRouter(
@@ -27,19 +25,8 @@ router = APIRouter(
     responses={404: {"description": "Not found"}},
 )
 
-class Item(BaseModel):
-    video:str
-    thumbnail:str
-    title:str
-    viewCount:int
-    channel:str
-    publishedAt:str
-    difficulty:int
-    cateogry:str
-    ingredients: List[IngredientCreate]
-    steps: List[RecipeStepCreate]
 
-@router.get("/recommend/", response_model=List[Recipe])
+@router.get("/recoomend/", response_model=List[Recipe])
 async def get_recipes_by_same(
     difficulty: str | None = None,
     category: str | None = None,
@@ -71,60 +58,44 @@ async def get_channel(
     return handle_result(result)
 
 
-@router.post("", response_model=RecipeResponse)
+@router.post("", response_model=Recipe)
 async def create_recipe(
     item: RecipeCreate,
     item2: List[IngredientCreate],
     item3: List[RecipeStepCreate],
-    tags: List[TagCreate],
+    channelID: str,
     db: get_db = Depends(),
 ):
-    result = RecipeService(db).create_recipe(item, item2, item3, tags)
+    result = RecipeService(db).create_recipe(item, item2, item3, channelID)
     return handle_result(result)
 
 
-@router.get("/{item_id}", response_model=RecipeResponseDetail)
+@router.get("/{item_id}", response_model=Recipe)
 async def get_item(item_id: int, db: get_db = Depends()):
     result = RecipeService(db).get_recipe(item_id)
     return handle_result(result)
 
 
-@router.get("", response_model=List[RecipeResponse])
+@router.get("", response_model=List[Recipe])
 async def get_items(db: get_db = Depends()):
     result = RecipeService(db).get_recipes()
     return handle_result(result)
 
-@router.delete("/{recipe_id}")
-async def delete_recipe(recipe_id: int, db:get_db = Depends()):
-    RecipeService(db).delete_recipe(recipe_id)
-
-@router.post('/insert')
-async def insert_data(
-    item : Item,
-    db: get_db = Depends(),
-    ):
-    res = RecipeCRUD(db).insert_data(
-        videoId=item.video,
-        thumbnail=item.thumbnail,
-        title=item.title,
-        viewCount=item.viewCount,
-        channelname=item.channel,
-        publishedAt=item.publishedAt,
-        difficulty=item.difficulty,
-        category=item.cateogry,
-        ingredients=item.ingredients,
-        recipeSteps=item.steps
-    )
-    return res
-
-@router.post('insertById')
-async def isnert_by_id(
-    videoId: str,
-    difficulty: int,
-    category: str,
-    ingredients:List[IngredientCreate],
-    recipeSteps:List[RecipeStepCreate],
-    db:get_db = Depends()
+@router.get("/search/", response_model=List[Recipe])
+async def get_recipe_by_search(
+    title: str | None = None,
+    channel: str | None = None,
+    tag: str | None = None,
+    db: get_db=Depends()
 ):
-    res = RecipeCRUD(db).create_recipe_by_id(videoId=videoId,category=category,difficulty=difficulty, ingredients=ingredients, recipeSteps=recipeSteps)
-    return res
+    if title:
+        result = SearchService(db).getRecipesByTitle(title)
+        return handle_result(result)
+    elif channel:
+        result = SearchService(db).getRecipesByChannel(channel)
+        return handle_result(result)
+    elif tag:
+        result = SearchService(db).getRecipesByTag(tag)
+        return handle_result(result)
+    else:
+        return "none"

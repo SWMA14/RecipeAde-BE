@@ -1,7 +1,6 @@
 from typing import List, Optional
-from pydantic import BaseModel, root_validator, Field
+from pydantic import BaseModel, root_validator
 from datetime import datetime
-from uuid import uuid4, UUID
 
 
 class TagBase(BaseModel):
@@ -9,13 +8,10 @@ class TagBase(BaseModel):
 
 
 class TagCreate(TagBase):
-    pass
+    recipeId: int
 
-class TagResponse(TagBase):
-    pass 
 
 class Tag(TagBase):
-    recipeId: int
     id: int
     deleted: bool
     created_at: datetime = datetime.now()
@@ -25,19 +21,22 @@ class Tag(TagBase):
         orm_mode = True
         validate_assignment = True
 
+    @root_validator
+    def number_validator(cls, values):
+        values["updated_at"] = datetime.now()
+        return values
 
 
 class ChannelBase(BaseModel):
     channelID: str
     ChannelName: str
-    #ChannelThumbnail: str
+    ChannelThumbnail: str
 
 
 class ChannelCreate(ChannelBase):
     allowed: Optional[bool] = False
+    pass
 
-class ChannelResponse(ChannelBase):
-    id:int
 
 class Channel(ChannelBase):
     id: int
@@ -49,6 +48,10 @@ class Channel(ChannelBase):
         orm_mode = True
         validate_assignment = True
 
+    @root_validator
+    def number_validator(cls, values):
+        values["updated_at"] = datetime.now()
+        return values
 
 
 class RecipeStepBase(BaseModel):
@@ -57,9 +60,6 @@ class RecipeStepBase(BaseModel):
 
 
 class RecipeStepCreate(RecipeStepBase):
-    pass
-
-class RecipeStepResponse(RecipeStepBase):
     pass
 
 
@@ -75,19 +75,21 @@ class RecipeStep(RecipeStepBase):
         orm_mode = True
         validate_assignment = True
 
+    @root_validator
+    def number_validator(cls, values):
+        values["updated_at"] = datetime.now()
+        return values
+
 
 class IngredientBase(BaseModel):
     name: str
-    quantity: Optional[str] = None
-    unit: Optional[str] = None
+    quantity: int
+    unit: str
 
 
 class IngredientCreate(IngredientBase):
     pass
 
-
-class IngredientResponse(IngredientBase):
-    pass
 
 class Ingredient(IngredientBase):
     id: int
@@ -101,28 +103,28 @@ class Ingredient(IngredientBase):
         orm_mode = True
         validate_assignment = True
 
+    @root_validator
+    def number_validator(cls, values):
+        values["updated_at"] = datetime.now()
+        return values
 
 
 class RecipeBase(BaseModel):
     youtubeVideoId: str
     youtubeTitle: str
+    youtubeChannel: Optional[str] = None
     youtubeViewCount: int
-    difficulty: Optional[int] = None
+    difficulty: Optional[str] = None
     category: Optional[str] = None
-    youtubeThumbnail: str
+
 
 class RecipeResponse(RecipeBase):
-    id: int
-    rating: float
-    ingredients: List[IngredientResponse]
-    recipesteps: List[RecipeStepResponse]
-    channel:ChannelResponse
+    pass
 
 
 class RecipeCreate(RecipeBase):
     youtubePublishedAt: str
     youtubeLikeCount: int
-    youtubeChannel: str
 
 
 class Recipe(RecipeBase):
@@ -134,69 +136,28 @@ class Recipe(RecipeBase):
     ingredients: List[Ingredient]
     recipesteps: List[RecipeStep]
     tags: List[Tag]
+    # channels: Channel
     rating: float
-    youtubeChannel: str
 
     class Config:
         orm_mode = True
         validate_assignment = True
 
-    
-class ReviewBase(BaseModel):
-    author: int
-    content: str
-
-class ReviewCreate(ReviewBase):
-    pass
-
-class ReviewResponse(ReviewBase):
-    id: int
-    recipeId: int
-
-class Review(ReviewBase):
-    id: int
-    deleted: bool
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
-
-    recipeId: int
-
-    class Config:
-        orm_mode = True
-        validate_assignment = True
-
-class ReviewImageCreate(BaseModel):
-    reviewId: int
-    image: str
-    fileName: str
-
-class ReviewImage(ReviewImageCreate):
-    id: int
-    deleted: bool
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
-
-    class Config:
-        orm_mode = True
-        validate_assignment = True
-
-class RecipeResponseDetail(RecipeResponse):
-    reviews:List[Review]
+    @root_validator
+    def number_validator(cls, values):
+        values["updated_at"] = datetime.now()
+        return values
 
 class UserBase(BaseModel):
+    uid: int
     password: str
-    email: str
-    
+    nickname: str
 
-class UserSignin(UserBase):
-    name: str
+class UserCreate(UserBase):
+    pass
 
-class UserSignUp(UserSignin):
-    gender: str
-    age: str
-
-class User(UserSignUp):
-    id: UUID
+class User(UserBase):
+    id: int
     deleted: bool
     created_at: datetime = datetime.now()
     updated_at: datetime = datetime.now()
@@ -205,53 +166,7 @@ class User(UserSignUp):
         orm_mode = True
         validate_assignment = True
 
-class token(BaseModel):
-    token_type:str
-    token:str
-
-class customizeSteps(BaseModel):
-    step: str
-    timestamp: str
-
-class CustomizeBase(BaseModel):
-    title: str
-    steps: List[customizeSteps]
-    ingredients: List[IngredientCreate]
-    tags: str
-    difficulty: str
-    category: str
-
-class CustomizeCreate(CustomizeBase):
-    sourceId: str
-
-class CustomizeUpdate(CustomizeBase):
-    pass
-
-class CustomizeRecipe(CustomizeBase):
-    userId: UUID
-    sourceId: str
-
-class CustomizeRecipeResponse(CustomizeBase):
-    sourceId: str
-    id: UUID
-
-class DefaultRecipeBase(BaseModel):
-    steps: str
-    ingredients: str
-    videoId: str
-
-class DefaultRecipe(DefaultRecipeBase):
-    id: UUID
-    deleted: bool
-    created_at: datetime = datetime.now()
-    updated_at: datetime = datetime.now()
-
-class dynamoDbRecipe(BaseModel):
-    steps: List[customizeSteps]
-    ingredients: List[IngredientCreate]
-    count: int
-    video_id: str
-    status: str
-
-class dynamoResponse(BaseModel):
-    recipes: List[dynamoDbRecipe]
+    @root_validator
+    def number_validator(cls, values):
+        values["updated_at"] = datetime.now()
+        return values
