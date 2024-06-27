@@ -1,50 +1,40 @@
-from models.recipe import Recipe,Tag
+from models.recipe import Recipe,Tag, Channel
 from .main import AppCRUD, AppService
-from schema.schemas import RecipeResponse
 from typing import List
 from utils.service_result import ServiceResult
 from utils.app_exceptions import AppException
+from sqlalchemy import or_,desc
+from schema.schemas import RecipeResponse
+
 
 class SearchService(AppService):
-    def getRecipesByTitle(self, title: str) -> ServiceResult:
-        recipes = SearchCRUD(self.db).getRecipesByTitle(title)
+    def search_service(self, keyword,category,diff,sort) -> ServiceResult:
+        recipes = SearchCRUD(self.db).search_recipe(keyword, category,diff,sort)
         if not recipes:
-            return ServiceResult(AppException.FooGetItem({"item": None}))
-        return ServiceResult(recipes)
-    
-    def getRecipesByChannel(self, channel: str) -> ServiceResult:
-        recipes = SearchCRUD(self.db).getRecipesByChannel(channel)
-        if not recipes:
-            return ServiceResult(AppException.FooGetItem({"item": None}))
-        return ServiceResult(recipes)
-    
-    def getRecipesByTag(self,tag:str) -> ServiceResult:
-        recipes = SearchCRUD(self.db).getRecipesByTag(tag)
-        if not recipes:
-            return ServiceResult(AppException.FooGetItem({"item": None}))
+            return ServiceResult(AppException.FooGetItem({"iteem_ids":None}))
         return ServiceResult(recipes)
 
 class SearchCRUD(AppCRUD):
-    def getRecipesByTitle(self, title: str) -> List[RecipeResponse]:
-        searchtitle = "%{}%".format(title)
-        recipes = self.db.query(Recipe).filter(Recipe.youtubeTitle.like(searchtitle)).all()
-        if recipes:
-            return recipes
-        return None
-
-    def getRecipesByChannel(self, channel: str) -> List[RecipeResponse]:
-        searchChannel = "%{}%".format(channel)
-        recipes = self.db.query(Recipe).filter(Recipe.youtubeChannel.like(searchChannel)).all()
-        if recipes:
-            return recipes
-        return None
-    
-    def getRecipesByTag(self, tag: str) -> List[RecipeResponse]:
-        searchTag = "%{}%".format(tag)
+    def search_recipe(self,keyword,category, diff, sort):
+        query = self.db.query(Recipe)
+        searchtitle = "%{}%".format(keyword)
+        searchChannel = "%{}%".format(keyword)
+        searchTag = "%{}%".format(keyword)
         tags = self.db.query(Tag).filter(Tag.tagName.like(searchTag)).all()
-        recipes=[]
-        for tag in tags:
-            recipes.append(tag.recipe)
-        if recipes:
-            return recipes
-        return None
+        channels = self.db.query(Channel).filter(Channel.ChannelName.like(searchChannel)).all()
+        recipeIds = [tag.recipeId for tag in tags]
+        channelIds = [channel.channelID for channel in channels]
+        query = query.filter(or_(Recipe.youtubeTitle.like(searchtitle), Recipe.youtubeChannel.in_(channelIds), Recipe.id.in_(recipeIds)), Recipe.deleted==False)
+        if category:
+            query = query.filter(Recipe.category == category, Recipe.deleted == False)
+        if diff:
+            query = query.filter(Recipe.difficulty == diff, Recipe.deleted==False)
+        if sort:
+            if sort == "rating":
+                query = query.order_by(desc(Recipe.rating))
+            elif sort == "current":
+                query = query.order_by(desc(Recipe.youtubePublishedAt))
+            else:
+                query = query.order_by(desc(Recipe.youtubeViewCount))
+        recipes = query.all()
+        return recipes

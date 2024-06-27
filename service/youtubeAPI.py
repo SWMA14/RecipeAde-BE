@@ -4,7 +4,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from schema.schemas import RecipeCreate
+from schema.schemas import RecipeCreate,TagCreate
 
 from dotenv import load_dotenv
 from typing import List
@@ -13,9 +13,26 @@ import pickle
 import isodate
 import pickle
 import os
-
+import requests
 from schema.schemas import ChannelCreate
+from pytube import YouTube
+import re
 
+def get_video_info(url):
+    try:
+        res = requests.get(url).text
+        title = re.findall(r'"title":"[^>]*",',res)[0].split(',')[0][9:-1]
+        channel = re.findall(r'"channel":{"simpleText":".+?(?=")',res)[0].split(':"')[-1]
+        view = re.findall(r'"factoid":{"factoidRenderer":{"value":{"simpleText":".+?(?=")',res)[0].split(':"')[-1]
+        date = re.findall(r'"publishDate":{"simpleText":".+?(?=")',res)[0].split(':"')[-1]
+        return {
+            "title":title,
+            "channel":channel,
+            "views":view,
+            "date":date
+        }
+    except:
+        return {"msg":"failed"}
 
 def convert_seconds_to_time_str(seconds: float) -> str:
     minutes = int(seconds // 60)
@@ -87,7 +104,7 @@ class YoutubeAPI:
     def findVideoByChannelId(self, channelID: str) -> List[str]:
         videos = (
             self.youtube.search()
-            .list(part="id", channelId=channelID, maxResults=1, order="date")
+            .list(part="id", channelId=channelID, maxResults=5, order="date")
             .execute()
         )
 
@@ -113,8 +130,25 @@ class YoutubeAPI:
             print("An HTTP error %d occurred:\n%s" % (e.resp.status, e.content))
             return None
 
+    def getTagById(self,videoId: str) -> List[str]:
+        #videoId를 받으면 Tag의 리스프 리턴
+        youtube_response = (
+            self.youtube.videos()
+            .list(
+                part="snippet",
+                id=videoId,
+            )
+            .execute()
+        )
+         
+        tags = youtube_response["items"][0]["snippet"].get("tags")
+
+        return tags
+
+
+
     # 영상 Id를 통해 필요한 데이터 수집
-    def getVideoInfoById(self, videoId: str) -> tuple[RecipeCreate, str]:
+    def getVideoInfoById(self, videoId: str) -> tuple[RecipeCreate, List[str],str]:
         youtube_response = (
             self.youtube.videos()
             .list(
@@ -124,49 +158,53 @@ class YoutubeAPI:
             .execute()
         )
 
-        view_count = youtube_response["items"][0]["statistics"]["viewCount"]
-        like_count = youtube_response["items"][0]["statistics"]["likeCount"]
+        # view_count = youtube_response["items"][0]["statistics"]["viewCount"]
+        # like_count = youtube_response["items"][0]["statistics"]["likeCount"]
 
-        title = youtube_response["items"][0]["snippet"]["title"]
-        published_at = youtube_response["items"][0]["snippet"]["publishedAt"]
-        descriptioin = youtube_response["items"][0]["snippet"]["description"]
+        # title = youtube_response["items"][0]["snippet"]["title"]
+        # published_at = youtube_response["items"][0]["snippet"]["publishedAt"]
+        # descriptioin = youtube_response["items"][0]["snippet"]["description"]
         # thumbnail = youtube_response["items"][0]["snippet"]["thumbnails"]["default"]["url"]
-        channel_id = youtube_response["items"][0]["snippet"]["channelId"]
-        duration = youtube_response["items"][0]["contentDetails"]["duration"]
-        parsed_duration = isodate.parse_duration(duration)
-        run_time = parsed_duration.total_seconds()
+        # channel_id = youtube_response["items"][0]["snippet"]["channelId"]
+        # duration = youtube_response["items"][0]["contentDetails"]["duration"]
+        # parsed_duration = isodate.parse_duration(duration)
+        # run_time = parsed_duration.total_seconds()
 
-        if run_time > 60:  # 쇼츠는 tags가 없는 것도 있던데...?
-            tags = youtube_response["items"][0]["snippet"]["tags"]
-        else:
-            tags = []
-        category = youtube_response["items"][0]["topicDetails"]["topicCategories"]
 
-        transcript_list = YouTubeTranscriptApi.list_transcripts(videoId)
-        transcript = transcript_list.find_transcript(["ko", "en"])
-        if transcript == None:
-            script = []
-        else:
-            script = transcript.fetch()
-        processed_data = process_data(script)
 
-        recipe_data = RecipeCreate(
-            youtubeVideoId=videoId,
-            youtubeTitle=title,
-            youtubeViewCount=view_count,
-            difficulty="",
-            category="",
-            youtubePublishedAt=published_at,
-            youtubeLikeCount=like_count,
-            youtubeTag=(tags),  # 빼야함
-            youtubeDescription=descriptioin,  # 추후 빼야함
-            youtubeCaption=(processed_data),  # 추후 빼야함
-        )
+        # tags = youtube_response["items"][0]["snippet"].get("tags")
+        # if tags == None:
+        #     tags = []
+        # #category = youtube_response["items"][0]["topicDetails"]["topicCategories"]
 
-        return (
-            recipe_data,
-            channel_id,
-        )
+        # # transcript_list = YouTubeTranscriptApi.list_transcripts(videoId)
+        # # transcript = transcript_list.find_transcript(["ko", "en"])
+        # # if transcript == None:
+        # #     script = []
+        # # else:
+        # #     script = transcript.fetch()
+        # # processed_data = process_data(script)
+
+        # recipe_data = RecipeCreate(
+        #     youtubeVideoId=videoId,
+        #     youtubeTitle=title,
+        #     youtubeViewCount=view_count,
+        #     difficulty=0,
+        #     category="",
+        #     youtubePublishedAt=published_at,
+        #     youtubeLikeCount=like_count,
+        #     youtubeChannel=channel_id,
+        #     youtubeThumbnail=thumbnail
+        #     #youtubeTag=tags
+        #     #youtubeDescription=descriptioin,  # 추후 빼야함
+        #     #youtubeCaption=(processed_data),  # 추후 빼야함
+        # )
+        # return (
+        #     recipe_data,
+        #     tags,
+        #     channel_id,
+        #     descriptioin
+        # )
 
     def get_channelInfo(self, channelID: str) -> ChannelCreate:
         try:

@@ -6,27 +6,32 @@ from schema.schemas import (
     ChannelCreate,
     TagCreate,
     RecipeResponse,
+    RecipeResponseDetail
 )
 from typing import List
 from .main import AppCRUD, AppService
 from utils.service_result import ServiceResult
 from utils.app_exceptions import AppException
 from .youtubeAPI import YoutubeAPI
-
+from sqlalchemy import or_,desc
 
 class RecipeService(AppService):
+    def delete_recipe(self,recipe_id):
+        RecipeCRUD(self.db).delete_recipe(recipe_id)
+
     def create_recipe(
         self,
         item: RecipeCreate,
         ingredient_items: List[IngredientCreate],
         recipeStep_items: List[RecipeStepCreate],
-        channelID: str,
+        tags: List[TagCreate]
     ) -> ServiceResult:
         recipe = RecipeCRUD(self.db).create_recipe(
             item=item,
             ingredient_items=ingredient_items,
             recipeStep_items=recipeStep_items,
-            channelID=channelID,
+            channelID=item.youtubeChannel,
+            tags=tags
         )
         if not recipe:
             return ServiceResult(AppException.FooCreateItem())
@@ -58,14 +63,62 @@ class RecipeService(AppService):
 
 
 class RecipeCRUD(AppCRUD):
+    def insert_data(self, videoId, thumbnail, title, viewCount, channelname, publishedAt,difficulty, category,
+                    ingredients : List[IngredientCreate],
+                    recipeSteps : List[RecipeStepCreate]) -> Recipe:
+        youtube = YoutubeAPI()
+        channelID = youtube.findChannelId(channelname)
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        if not channel:
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(ChannelName=channelname, channelID = channelID))
+            self.db.commit()
+            channel = newChannel
+        recipe = Recipe(youtubeVideoId = videoId, 
+                        channel=channel,
+                        youtubeTitle = title,
+                        youtubeViewCount = viewCount,
+                        youtubePublishedAt = publishedAt,
+                        youtubeThumbnail = thumbnail,
+                        youtubeChannel = channelID,
+                        difficulty = difficulty,
+                        category = category
+                        )
+        self.db.add(recipe)
+        self.db.flush()
+        tags = youtube.getTagById(videoId)
+        tagcreate_list = [TagCreate(tagName=tag) for tag in tags]
+        TagCRUD(self.db).create_tags(
+            tagcreate_list, recipe.id
+        )
+        IngredientCRUD(self.db).create_ingredients(
+            ingredients, recipe.id
+        )
+        RecipeStepCRUD(self.db).create_recipeSteps(
+            recipeSteps, recipe.id
+        )
+        self.db.commit()
+        self.db.refresh(recipe)
+        return recipe.id
+
+    def delete_recipe(self, recipe_id: int):
+        recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
+        if recipe:
+            recipe.deleted = True
+        self.db.commit()
+
     def create_recipe(
         self,
         item: RecipeCreate,
         ingredient_items: List[IngredientCreate],
         recipeStep_items: List[RecipeStepCreate],
         channelID: str,
-    ) -> Recipe:
-        # channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        tags: List[TagCreate]
+    ) -> RecipeResponse: # 외래 키 제약조건 위배 -> 레시피 입력 시 채널 추가까지 
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelID)
+        if not channel:
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID=channelID, ChannelName="none"))
+            self.db.commit()
+            channel = newChannel
         # if channel:
         #     channelid = channel.id
         # else:
@@ -76,34 +129,62 @@ class RecipeCRUD(AppCRUD):
         #     channel = ChannelCRUD(self.db).create_channel(channel_obj)
         #     self.db.flush()
         #     channelid = channel.id
-        recipe = Recipe(**item.dict())
+        recipe = Recipe(**item.dict(), channel=channel)
         self.db.add(recipe)
         self.db.flush()
-        tags = TagCRUD(self.db).create_tags(
-            [TagCreate(tagName="reciped", recipeId=recipe.id)]
+        TagCRUD(self.db).create_tags(
+            tags, recipe.id
         )
-        ingredients = IngredientCRUD(self.db).create_ingredients(
+        IngredientCRUD(self.db).create_ingredients(
             ingredient_items, recipe.id
         )
-        recipeSteps = RecipeStepCRUD(self.db).create_recipeSteps(
+        RecipeStepCRUD(self.db).create_recipeSteps(
             recipeStep_items, recipe.id
         )
         self.db.commit()
         self.db.refresh(recipe)
         return recipe
 
-    def get_recipe(self, recipe_id: int) -> Recipe:
-        recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id).first()
+    def get_recipe(self, recipe_id: int) -> RecipeResponseDetail:
+        recipe = self.db.query(Recipe).filter(Recipe.id == recipe_id, Recipe.deleted == False).first()
         if recipe:
             return recipe
         return None
 
-    def get_recipes(self) -> List[Recipe]:
-        recipe = self.db.query(Recipe).all()
+    def get_recipes(self):
+        recipe = self.db.query(Recipe).filter(Recipe.deleted == False).all()
         if recipe:
             return recipe
         return None
-
+    
+    def create_recipe_by_id(self, videoId:str, category:str, difficulty: int, ingredients: List[IngredientCreate], recipeSteps: List[RecipeStepCreate]) -> Recipe:
+        youtube = YoutubeAPI()
+        recipe_data, tags, channelId = youtube.getVideoInfoById(videoId = videoId)
+        recipe_data.category = category
+        recipe_data.difficulty = difficulty
+        channelName = youtube.get_channelInfo(channelId).ChannelName
+        channel = ChannelCRUD(self.db).get_channel_by_channelId(channelId)
+        if not channel:
+            newChannel = ChannelCRUD(self.db).create_channel(ChannelCreate(channelID=channelId, ChannelName=channelName))
+            self.db.commit()
+            channel = newChannel
+        
+        recipe = Recipe(**recipe_data.dict(), channel=channel)
+        self.db.add(recipe)
+        self.db.flush()
+        tagcreate_list = [TagCreate(tagName=tag) for tag in tags]
+        TagCRUD(self.db).create_tags(
+            tagcreate_list, recipe.id
+        )
+        IngredientCRUD(self.db).create_ingredients(
+            ingredients, recipe.id
+        )
+        RecipeStepCRUD(self.db).create_recipeSteps(
+            recipeSteps, recipe.id
+        )
+        self.db.commit()
+        self.db.refresh(recipe)
+        return recipe
 
 class IngredientCRUD(AppCRUD):
     def create_ingredients(
@@ -166,8 +247,8 @@ class ChannelCRUD(AppCRUD):
 
 
 class TagCRUD(AppCRUD):
-    def create_tags(self, tag_items: List[TagCreate]) -> List[Tag]:
-        tags = [Tag(**tag.dict()) for tag in tag_items]
+    def create_tags(self, tag_items: List[TagCreate], recipe:int) -> List[Tag]:
+        tags = [Tag(**tag.dict(), recipeId = recipe) for tag in tag_items]
         self.db.add_all(tags)
         return tags
 
